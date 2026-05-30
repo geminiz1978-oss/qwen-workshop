@@ -9,6 +9,10 @@ on:
 permissions:
   contents: read
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+  ELECTRON_DISABLE_SECURITY_WARNINGS: "true"
+
 jobs:
   verify:
     name: Typecheck, tests, build, smoke
@@ -30,5 +34,3 @@ jobs:
 
       - name: Run release confidence checks
         run: npm run check:release
-        env:
-          ELECTRON_DISABLE_SECURITY_WARNINGS: "true"
