@@ -271,97 +271,99 @@ export function ChatPanel({
         )}
       </div>
 
-      {rawOpen ? (
-        <section className="raw-drawer">
-          <div className="raw-drawer-header">
-            <span>Raw stream</span>
-            <button className="bubble-copy" onClick={copyRawStream} disabled={!rawEntries.length}>
-              {copiedRaw ? <Check size={13} /> : <Copy size={13} />}
-              <span>{copiedRaw ? 'Copied' : 'Copy raw'}</span>
+      <div className="chat-dock">
+        {rawOpen ? (
+          <section className="raw-drawer">
+            <div className="raw-drawer-header">
+              <span>Raw stream</span>
+              <button className="bubble-copy" onClick={copyRawStream} disabled={!rawEntries.length}>
+                {copiedRaw ? <Check size={13} /> : <Copy size={13} />}
+                <span>{copiedRaw ? 'Copied' : 'Copy raw'}</span>
+              </button>
+            </div>
+            <pre>{rawEntries.length ? rawEntries.map((entry) => entry.text).join('\n\n--- RAW EVENT ---\n\n') : 'No raw stream events yet.'}</pre>
+          </section>
+        ) : null}
+
+        {isRunning ? <WorkingIndicator stalled={isStalled} /> : null}
+
+        {pendingAttachments.length ? (
+          <AttachmentTray attachments={pendingAttachments} onRemove={removeAttachment} />
+        ) : null}
+
+        <div className="prompt-library" aria-label="Prompt library">
+          {promptTemplates.map((template) => (
+            <button
+              className="prompt-template-chip"
+              disabled={!workspaceReady || isRunning}
+              key={template.id}
+              onClick={() => applyPromptTemplate(template)}
+              title={template.prompt}
+              type="button"
+            >
+              {template.label}
             </button>
-          </div>
-          <pre>{rawEntries.length ? rawEntries.map((entry) => entry.text).join('\n\n--- RAW EVENT ---\n\n') : 'No raw stream events yet.'}</pre>
-        </section>
-      ) : null}
-
-      {isRunning ? <WorkingIndicator stalled={isStalled} /> : null}
-
-      {pendingAttachments.length ? (
-        <AttachmentTray attachments={pendingAttachments} onRemove={removeAttachment} />
-      ) : null}
-
-      <div className="prompt-library" aria-label="Prompt library">
-        {promptTemplates.map((template) => (
+          ))}
           <button
-            className="prompt-template-chip"
-            disabled={!workspaceReady || isRunning}
-            key={template.id}
-            onClick={() => applyPromptTemplate(template)}
-            title={template.prompt}
+            className="prompt-template-chip manage"
+            disabled={isRunning}
+            onClick={onManagePromptTemplates}
+            title="Manage prompt templates"
             type="button"
           >
-            {template.label}
-          </button>
-        ))}
-        <button
-          className="prompt-template-chip manage"
-          disabled={isRunning}
-          onClick={onManagePromptTemplates}
-          title="Manage prompt templates"
-          type="button"
-        >
-          <SlidersHorizontal size={13} />
-          Manage
-        </button>
-      </div>
-
-      <input
-        ref={fileInputRef}
-        className="hidden-file-input"
-        type="file"
-        multiple
-        onChange={(event) => void handlePickedFiles(event.currentTarget.files)}
-      />
-
-      <form className="composer" onSubmit={submit}>
-        <div className="composer-tools">
-          <button
-            className="icon-button"
-            title="Attach files"
-            type="button"
-            disabled={!workspaceReady || isRunning || isImporting}
-            onClick={openFilePicker}
-          >
-            <Paperclip size={16} />
-          </button>
-          <button
-            className={`icon-button ${isListening ? 'danger' : ''}`}
-            title={speechSupported ? 'Dictate prompt' : 'Speech recognition is not available in this Chromium build'}
-            type="button"
-            disabled={!workspaceReady || isRunning || !speechSupported}
-            onClick={toggleDictation}
-          >
-            {isListening ? <MicOff size={16} /> : <Mic size={16} />}
+            <SlidersHorizontal size={13} />
+            Manage
           </button>
         </div>
-        <textarea
-          value={prompt}
-          placeholder={
-            isRunning
-              ? 'Qwen is working...'
-              : isImporting
-                ? 'Importing attachments...'
-              : workspaceReady
-                ? 'Ask Qwen to inspect, edit, test, build, or drop files here...'
-                : 'Open a workspace first'
-          }
-          disabled={!workspaceReady || isRunning}
-          onChange={(event) => setPrompt(event.target.value)}
+
+        <input
+          ref={fileInputRef}
+          className="hidden-file-input"
+          type="file"
+          multiple
+          onChange={(event) => void handlePickedFiles(event.currentTarget.files)}
         />
-        <button className="send-button" disabled={!canSubmit} title="Send to Qwen">
-          <Send size={18} />
-        </button>
-      </form>
+
+        <form className="composer" onSubmit={submit}>
+          <div className="composer-tools">
+            <button
+              className="icon-button"
+              title="Attach files"
+              type="button"
+              disabled={!workspaceReady || isRunning || isImporting}
+              onClick={openFilePicker}
+            >
+              <Paperclip size={16} />
+            </button>
+            <button
+              className={`icon-button ${isListening ? 'danger' : ''}`}
+              title={speechSupported ? 'Dictate prompt' : 'Speech recognition is not available in this Chromium build'}
+              type="button"
+              disabled={!workspaceReady || isRunning || !speechSupported}
+              onClick={toggleDictation}
+            >
+              {isListening ? <MicOff size={16} /> : <Mic size={16} />}
+            </button>
+          </div>
+          <textarea
+            value={prompt}
+            placeholder={
+              isRunning
+                ? 'Qwen is working...'
+                : isImporting
+                  ? 'Importing attachments...'
+                : workspaceReady
+                  ? 'Ask Qwen to inspect, edit, test, build, or drop files here...'
+                  : 'Open a workspace first'
+            }
+            disabled={!workspaceReady || isRunning}
+            onChange={(event) => setPrompt(event.target.value)}
+          />
+          <button className="send-button" disabled={!canSubmit} title="Send to Qwen">
+            <Send size={18} />
+          </button>
+        </form>
+      </div>
     </section>
   );
 }
