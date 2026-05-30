@@ -27,16 +27,20 @@ body,
 #root {
   width: 100%;
   height: 100%;
+  max-height: 100%;
+  min-height: 0;
   overflow: hidden;
 }
 
 body {
   margin: 0;
+  height: 100%;
   min-width: 1080px;
-  min-height: 100%;
+  min-height: 0;
   background: var(--black);
   color: var(--text);
   letter-spacing: 0;
+  overscroll-behavior: none;
 }
 
 button,
@@ -80,7 +84,12 @@ button {
 .app-shell {
   position: relative;
   display: flex;
-  height: 100%;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  max-height: 100vh;
+  max-height: 100dvh;
+  min-height: 0;
   overflow: hidden;
   flex-direction: column;
   background:
@@ -202,8 +211,11 @@ button {
   flex: 1;
   grid-template-columns: minmax(260px, 0.72fr) minmax(460px, 1.28fr) minmax(380px, 1fr);
   gap: 1px;
+  height: 100%;
+  max-height: 100%;
   min-height: 0;
   overflow: hidden;
+  overscroll-behavior: none;
   background: var(--line);
 }
 
@@ -219,7 +231,10 @@ button {
 .panel,
 .center-stack,
 .right-stack {
+  height: 100%;
+  max-height: 100%;
   min-height: 0;
+  min-width: 0;
   background: var(--near-black);
 }
 
@@ -248,13 +263,14 @@ button {
 
 .center-stack {
   display: grid;
-  grid-template-rows: auto 1fr;
+  grid-template-rows: auto minmax(0, 1fr);
   min-width: 0;
   overflow: hidden;
+  overscroll-behavior: none;
 }
 
 .center-stack.with-editor {
-  grid-template-rows: auto minmax(230px, 0.82fr) minmax(320px, 1fr);
+  grid-template-rows: auto minmax(180px, 0.82fr) minmax(260px, 1fr);
 }
 
 .right-stack {
@@ -408,8 +424,14 @@ button {
   border-top: 1px solid var(--line);
 }
 
+.workspace-panel .subsection {
+  display: flex;
+  flex-direction: column;
+}
+
 .workspace-panel .subsection:first-of-type {
-  flex: 1;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .subsection-title {
@@ -481,12 +503,13 @@ button {
 
 .file-tree,
 .change-list {
+  min-height: 0;
   overflow: auto;
   padding: 4px 8px 14px;
 }
 
 .file-tree {
-  height: calc(100vh - 318px);
+  flex: 1 1 auto;
 }
 
 .tree-node-label,
@@ -547,7 +570,9 @@ button {
 }
 
 .changed-files {
+  flex: 0 0 auto;
   max-height: 220px;
+  overflow: hidden;
 }
 
 .search-results {
@@ -797,8 +822,11 @@ button {
     "chat-messages"
     "chat-dock";
   grid-template-rows: auto auto minmax(0, 1fr) auto;
+  height: 100%;
+  max-height: 100%;
   min-height: 0;
   overflow: hidden;
+  overscroll-behavior: none;
 }
 
 .chat-panel > .panel-header {
@@ -1474,6 +1502,9 @@ button {
 }
 
 .chat-dock {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
   display: grid;
   grid-area: chat-dock;
   min-height: 0;

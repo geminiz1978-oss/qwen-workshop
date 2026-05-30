@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const mainBundle = join(root, 'out', 'main', 'index.js');
 const successMarker = 'QWEN_WORKSHOP_SMOKE_OK';
+const layoutMode = process.argv.includes('--layout');
 
 if (!existsSync(mainBundle)) {
   console.error('Built Electron output was not found. Run npm run build before npm run smoke:desktop.');
@@ -17,7 +18,8 @@ const child = spawn(electronPath, ['.', '--qwen-workshop-smoke'], {
   cwd: root,
   env: {
     ...process.env,
-    QWEN_WORKSHOP_SMOKE: '1'
+    QWEN_WORKSHOP_SMOKE: '1',
+    ...(layoutMode ? { QWEN_WORKSHOP_LAYOUT_SMOKE: '1' } : {})
   },
   stdio: ['ignore', 'pipe', 'pipe'],
   windowsHide: true

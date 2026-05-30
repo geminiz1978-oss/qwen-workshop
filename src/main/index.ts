@@ -32,7 +32,8 @@ import type {
   SaveApiKeyRequest,
   SessionBackupResult,
   SettingsBackupResult,
-  WorkspaceInfo
+  WorkspaceInfo,
+  WorkshopSessionSnapshot
 } from '../shared/types';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
@@ -42,6 +43,7 @@ app.setAppUserModelId('com.geminiz1978.qwenworkshop');
 
 const smokeMode = process.argv.includes('--qwen-workshop-smoke') || process.env.QWEN_WORKSHOP_SMOKE === '1';
 const realQwenSmokeMode = smokeMode && process.env.QWEN_WORKSHOP_REAL_QWEN_SMOKE === '1';
+const layoutSmokeMode = smokeMode && process.env.QWEN_WORKSHOP_LAYOUT_SMOKE === '1';
 const smokeUserDataPath = process.env.QWEN_WORKSHOP_SMOKE_USER_DATA?.trim();
 
 if (smokeMode) {
@@ -144,6 +146,13 @@ function wireSmokeTest(window: BrowserWindow): void {
       return;
     }
 
+    if (layoutSmokeMode) {
+      void runLayoutSmoke(window)
+        .then((message) => finish(true, message))
+        .catch((error) => finish(false, formatLogValue(error)));
+      return;
+    }
+
     setTimeout(() => finish(true, 'renderer-loaded'), 250);
   });
 
@@ -152,6 +161,173 @@ function wireSmokeTest(window: BrowserWindow): void {
   });
 
   setTimeout(() => finish(false, 'renderer-load-timeout'), smokeTimeoutMs);
+}
+
+interface LayoutSmokeMetrics {
+  windowInnerHeight: number;
+  documentClientHeight: number;
+  documentScrollHeight: number;
+  shellClientHeight: number;
+  shellScrollHeight: number;
+  gridClientHeight: number;
+  gridScrollHeight: number;
+  chatPanelClientHeight: number;
+  chatPanelScrollHeight: number;
+  chatScrollClientHeight: number;
+  chatScrollHeight: number;
+  composerTop: number;
+  composerBottom: number;
+  dockBottom: number;
+  panelBottom: number;
+}
+
+async function runLayoutSmoke(window: BrowserWindow): Promise<string> {
+  const session = buildLayoutSmokeSession();
+  const setupScript = `
+    (async () => {
+      const settings = await window.workshop.getSettings();
+      await window.workshop.saveSettings({ ...settings, onboardingCompleted: true });
+      await window.workshop.saveSession(${JSON.stringify(session)});
+    })();
+  `;
+
+  await window.webContents.executeJavaScript(setupScript);
+  await reloadRenderer(window);
+  await new Promise((resolve) => setTimeout(resolve, 500));
+
+  const metrics = (await window.webContents.executeJavaScript(`
+    (() => {
+      const shell = document.querySelector('.app-shell');
+      const grid = document.querySelector('.workspace-grid');
+      const panel = document.querySelector('.chat-panel');
+      const scroll = document.querySelector('.chat-scroll');
+      const dock = document.querySelector('.chat-dock');
+      const composer = document.querySelector('.composer');
+      const panelRect = panel?.getBoundingClientRect();
+      const dockRect = dock?.getBoundingClientRect();
+      const composerRect = composer?.getBoundingClientRect();
+
+      return {
+        windowInnerHeight: window.innerHeight,
+        documentClientHeight: document.documentElement.clientHeight,
+        documentScrollHeight: document.documentElement.scrollHeight,
+        shellClientHeight: shell?.clientHeight ?? 0,
+        shellScrollHeight: shell?.scrollHeight ?? 0,
+        gridClientHeight: grid?.clientHeight ?? 0,
+        gridScrollHeight: grid?.scrollHeight ?? 0,
+        chatPanelClientHeight: panel?.clientHeight ?? 0,
+        chatPanelScrollHeight: panel?.scrollHeight ?? 0,
+        chatScrollClientHeight: scroll?.clientHeight ?? 0,
+        chatScrollHeight: scroll?.scrollHeight ?? 0,
+        composerTop: composerRect?.top ?? -1,
+        composerBottom: composerRect?.bottom ?? -1,
+        dockBottom: dockRect?.bottom ?? -1,
+        panelBottom: panelRect?.bottom ?? -1
+      };
+    })();
+  `)) as LayoutSmokeMetrics;
+
+  const failures: string[] = [];
+  const tolerance = 2;
+
+  if (metrics.documentScrollHeight > metrics.documentClientHeight + tolerance) {
+    failures.push(`document scrolls ${metrics.documentScrollHeight}/${metrics.documentClientHeight}`);
+  }
+
+  if (metrics.shellScrollHeight > metrics.shellClientHeight + tolerance) {
+    failures.push(`shell scrolls ${metrics.shellScrollHeight}/${metrics.shellClientHeight}`);
+  }
+
+  if (metrics.gridScrollHeight > metrics.gridClientHeight + tolerance) {
+    failures.push(`workspace grid scrolls ${metrics.gridScrollHeight}/${metrics.gridClientHeight}`);
+  }
+
+  if (metrics.chatPanelScrollHeight > metrics.chatPanelClientHeight + tolerance) {
+    failures.push(`chat panel scrolls ${metrics.chatPanelScrollHeight}/${metrics.chatPanelClientHeight}`);
+  }
+
+  if (metrics.chatScrollHeight <= metrics.chatScrollClientHeight) {
+    failures.push(`chat transcript did not receive overflow ${metrics.chatScrollHeight}/${metrics.chatScrollClientHeight}`);
+  }
+
+  if (metrics.composerTop < 0 || metrics.composerBottom > metrics.windowInnerHeight + tolerance) {
+    failures.push(`composer offscreen ${metrics.composerTop}/${metrics.composerBottom}`);
+  }
+
+  if (Math.abs(metrics.dockBottom - metrics.panelBottom) > tolerance) {
+    failures.push(`dock detached ${metrics.dockBottom}/${metrics.panelBottom}`);
+  }
+
+  if (failures.length) {
+    throw new Error(`layout smoke failed: ${failures.join('; ')}; metrics=${JSON.stringify(metrics)}`);
+  }
+
+  return `layout-ok transcript=${metrics.chatScrollHeight}/${metrics.chatScrollClientHeight}`;
+}
+
+function buildLayoutSmokeSession(): WorkshopSessionSnapshot {
+  const now = new Date().toISOString();
+  const workspacePath = join(app.getPath('userData'), 'layout-workspace');
+  mkdirSync(workspacePath, { recursive: true });
+
+  const workspace: WorkspaceInfo = {
+    name: 'Layout Smoke Workspace',
+    path: workspacePath
+  };
+
+  const roles: ChatEntry['role'][] = ['reasoning', 'tool', 'assistant', 'system'];
+  const chatEntries: ChatEntry[] = Array.from({ length: 80 }, (_, index) => ({
+    id: `layout-smoke-${index}`,
+    role: roles[index % roles.length],
+    text: `Layout smoke entry ${index + 1}. This intentionally creates a long transcript so the desktop shell must keep the composer docked while only the transcript scrolls.`,
+    createdAt: new Date(Date.now() + index).toISOString()
+  }));
+
+  return {
+    activeWorkspacePath: workspace.path,
+    recentWorkspaces: [workspace],
+    workspaces: {
+      [workspace.path.toLowerCase()]: {
+        workspace,
+        chatEntries,
+        commandHistory: [],
+        agentTodos: [],
+        threads: [],
+        previewActive: false,
+        updatedAt: now
+      }
+    },
+    updatedAt: now
+  };
+}
+
+async function reloadRenderer(window: BrowserWindow): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      cleanup();
+      reject(new Error('layout smoke reload timeout'));
+    }, 10000);
+
+    const cleanup = (): void => {
+      clearTimeout(timeout);
+      window.webContents.removeListener('did-finish-load', handleLoaded);
+      window.webContents.removeListener('did-fail-load', handleFailed);
+    };
+
+    const handleLoaded = (): void => {
+      cleanup();
+      resolve();
+    };
+
+    const handleFailed = (_event: Electron.Event, errorCode: number, errorDescription: string): void => {
+      cleanup();
+      reject(new Error(`layout smoke reload failed ${errorCode}: ${errorDescription}`));
+    };
+
+    window.webContents.once('did-finish-load', handleLoaded);
+    window.webContents.once('did-fail-load', handleFailed);
+    window.webContents.reload();
+  });
 }
 
 interface RealQwenSmokeResult {
