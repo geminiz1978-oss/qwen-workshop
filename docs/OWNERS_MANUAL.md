@@ -30,7 +30,7 @@ Qwen Workshop is a Qwen-native desktop agent workspace. It gives Qwen a local ho
 - Use right-rail tabs to switch between Overview, Build, Runtime, Preview, and All panel groups.
 - Overview focuses on the dashboard, activity, and chat history.
 - Build focuses on memory, checkpoints, Qwen plans, checks, and terminal commands.
-- Runtime focuses on activity, runtime logs, Qwen plans, and terminal history.
+- Runtime focuses on activity, reliability diagnostics, runtime logs, Qwen plans, and terminal history.
 - Preview focuses on the live artifact view and recent activity.
 - The activity timeline records recent prompts, Qwen responses, tool activity, command results, preview state, and errors.
 - Toast notifications appear for important events such as completed runs, failed commands, preview changes, exports, and permission requests.
@@ -131,7 +131,8 @@ Qwen Workshop is a Qwen-native desktop agent workspace. It gives Qwen a local ho
 - If preview shows Qwen Workshop instead of your project, stop preview and start it again after opening the right workspace.
 - If a command fails on Windows, try the .cmd version, such as npm.cmd.
 - If Qwen appears quiet while thinking, watch the working indicator, plan panel, tool rows, and raw drawer.
-- Use the Runtime crash log panel to inspect renderer crashes, unresponsive events, child process exits, and uncaught desktop errors.
+- Use the Runtime diagnostics panel to inspect app mode, Electron and Node versions, storage paths, settings/session/log file status, renderer crashes, unresponsive events, child process exits, and uncaught desktop errors.
+- Use Copy diagnostics when you need one support bundle with app environment details and the runtime log tail.
 - If the app feels stuck, stop the active Qwen run before switching sessions, importing settings, or starting another run.
 
 ## Workflow Recipes

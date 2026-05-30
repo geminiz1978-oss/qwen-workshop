@@ -1945,6 +1945,104 @@ button {
   white-space: nowrap;
 }
 
+.diagnostics-card {
+  display: grid;
+  gap: 9px;
+  border-bottom: 1px solid var(--line);
+  background: #151518;
+  padding: 12px 14px;
+}
+
+.diagnostics-title {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 7px;
+}
+
+.diagnostics-title svg {
+  color: var(--red);
+}
+
+.diagnostics-title span,
+.diagnostics-title strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.diagnostics-title span {
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.diagnostics-title strong {
+  border: 1px solid var(--line);
+  background: var(--dark);
+  padding: 3px 7px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.diagnostics-grid,
+.diagnostics-files {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.diagnostic-cell,
+.diagnostic-file,
+.diagnostics-path {
+  min-width: 0;
+  border: 1px solid var(--line);
+  background: var(--dark);
+  padding: 7px 8px;
+}
+
+.diagnostic-cell,
+.diagnostic-file {
+  display: grid;
+  gap: 3px;
+}
+
+.diagnostic-cell span,
+.diagnostic-file span,
+.diagnostics-path span {
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.diagnostic-cell strong,
+.diagnostic-file strong,
+.diagnostics-path strong {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.diagnostic-file.ok {
+  border-color: rgba(44, 184, 113, 0.28);
+}
+
+.diagnostic-file.missing {
+  border-color: rgba(227, 43, 56, 0.38);
+  background: rgba(227, 43, 56, 0.08);
+}
+
+.diagnostics-path {
+  display: grid;
+  gap: 4px;
+}
+
 .runtime-log-body {
   max-height: 230px;
   overflow: auto;

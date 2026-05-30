@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron';
 import type {
   AppSettings,
+  AppDiagnosticsInfo,
   AttachmentInfo,
   ExportTranscriptRequest,
   ExportTranscriptResult,
@@ -91,6 +92,8 @@ const api: WorkshopApi = {
   getRuntimeLog: () => ipcRenderer.invoke('runtime-log:get') as Promise<RuntimeLogInfo>,
   clearRuntimeLog: () => ipcRenderer.invoke('runtime-log:clear') as Promise<RuntimeLogInfo>,
   openRuntimeLogExternal: () => ipcRenderer.invoke('runtime-log:open-external') as Promise<void>,
+  getAppDiagnostics: () => ipcRenderer.invoke('diagnostics:get') as Promise<AppDiagnosticsInfo>,
+  openUserDataFolder: () => ipcRenderer.invoke('diagnostics:open-user-data') as Promise<void>,
   getSecretStatus: () => ipcRenderer.invoke('secrets:status') as Promise<SecretStatus>,
   saveApiKey: (request: SaveApiKeyRequest) => ipcRenderer.invoke('secrets:save', request) as Promise<void>,
   importAttachments: (request: ImportAttachmentsRequest) =>

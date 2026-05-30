@@ -1,6 +1,6 @@
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron';
 import { appendFileSync, existsSync, mkdirSync } from 'node:fs';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -18,7 +18,9 @@ import { WorkspaceMemoryService } from './services/workspaceMemoryService';
 import { formatSessionBackup, formatSettingsBackup, readSessionBackup, readSettingsBackup } from '../shared/backups';
 import type {
   AppSettings,
+  AppDiagnosticsInfo,
   ChatEntry,
+  DiagnosticFileInfo,
   ExportTranscriptRequest,
   ExportTranscriptResult,
   ImportSessionBackupResult,
@@ -247,6 +249,8 @@ function registerIpc(): void {
   ipcMain.handle('runtime-log:get', () => readRuntimeLog());
   ipcMain.handle('runtime-log:clear', () => clearRuntimeLog());
   ipcMain.handle('runtime-log:open-external', () => openRuntimeLogExternal());
+  ipcMain.handle('diagnostics:get', () => getAppDiagnostics());
+  ipcMain.handle('diagnostics:open-user-data', () => openUserDataFolder());
   ipcMain.handle('session:get', () => sessionStore.getSession());
   ipcMain.handle('session:save', (_event, session) => sessionStore.saveSession(session));
   ipcMain.handle('session:export-backup', () => exportSessionBackup());
@@ -320,6 +324,72 @@ async function openRuntimeLogExternal(): Promise<void> {
 
   if (error) {
     throw new Error(error);
+  }
+}
+
+async function getAppDiagnostics(): Promise<AppDiagnosticsInfo> {
+  const userDataPath = app.getPath('userData');
+  const settingsPath = join(userDataPath, 'settings.json');
+  const sessionPath = join(userDataPath, 'session.json');
+  const secretsPath = join(userDataPath, 'secrets.json');
+  const logPath = runtimeLogPath();
+
+  return {
+    appName: app.getName(),
+    appVersion: app.getVersion(),
+    mode: app.isPackaged ? 'packaged' : 'development',
+    isPackaged: app.isPackaged,
+    platform: process.platform,
+    arch: process.arch,
+    electronVersion: process.versions.electron ?? '',
+    chromeVersion: process.versions.chrome ?? '',
+    nodeVersion: process.versions.node,
+    v8Version: process.versions.v8,
+    userDataPath,
+    appPath: app.getAppPath(),
+    resourcesPath: process.resourcesPath,
+    executablePath: process.execPath,
+    currentWorkingDirectory: process.cwd(),
+    settingsPath,
+    sessionPath,
+    secretsPath,
+    runtimeLogPath: logPath,
+    files: {
+      settings: await readDiagnosticFile(settingsPath),
+      session: await readDiagnosticFile(sessionPath),
+      secrets: await readDiagnosticFile(secretsPath),
+      runtimeLog: await readDiagnosticFile(logPath)
+    },
+    generatedAt: new Date().toISOString()
+  };
+}
+
+async function openUserDataFolder(): Promise<void> {
+  const userDataPath = app.getPath('userData');
+  await mkdir(userDataPath, { recursive: true });
+  const error = await shell.openPath(userDataPath);
+
+  if (error) {
+    throw new Error(error);
+  }
+}
+
+async function readDiagnosticFile(filePath: string): Promise<DiagnosticFileInfo> {
+  try {
+    const info = await stat(filePath);
+
+    return {
+      path: filePath,
+      exists: true,
+      size: info.size,
+      updatedAt: info.mtime.toISOString()
+    };
+  } catch {
+    return {
+      path: filePath,
+      exists: false,
+      size: 0
+    };
   }
 }
 

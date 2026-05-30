@@ -226,6 +226,13 @@ export function App(): JSX.Element {
         run: () => void openRuntimeLogExternal()
       },
       {
+        id: 'diagnostics-show',
+        label: 'Show diagnostics',
+        group: 'Help',
+        description: 'Open runtime diagnostics, storage paths, and crash log tools',
+        run: () => setRightRailView('runtime')
+      },
+      {
         id: 'setup-wizard',
         label: 'Open setup wizard',
         group: 'Help',
@@ -1700,6 +1707,8 @@ export function App(): JSX.Element {
               onLoad={workshop.getRuntimeLog}
               onClear={workshop.clearRuntimeLog}
               onOpenExternal={workshop.openRuntimeLogExternal}
+              onLoadDiagnostics={workshop.getAppDiagnostics}
+              onOpenUserDataFolder={workshop.openUserDataFolder}
             />
           ) : null}
 

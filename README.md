@@ -78,7 +78,7 @@ API keys are stored in Electron user data through `safeStorage`. They are not st
 - Right-rail view tabs for focused Overview, Build, Runtime, Preview, and All work modes
 - Activity timeline for Qwen runs, tool activity, command results, preview status, and errors
 - Toast notifications for important run, preview, settings, export, and failure events
-- In-app runtime log viewer for desktop crash and renderer issue diagnostics
+- In-app reliability diagnostics for app mode, Electron/Node versions, storage paths, persisted files, and runtime logs
 - Searchable in-app owner's manual backed by `docs/OWNERS_MANUAL.md`
 - Compact project diagnostics for bridge, model, endpoint, preview, keys, and usage status
 - Interactive approval prompt for Qwen tool and command requests

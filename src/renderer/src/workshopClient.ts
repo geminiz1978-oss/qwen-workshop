@@ -63,6 +63,35 @@ const mockWorkshop: WorkshopApi = {
     content: ''
   }),
   openRuntimeLogExternal: async () => undefined,
+  getAppDiagnostics: async () => ({
+    appName: 'Qwen Workshop',
+    appVersion: '0.1.0',
+    mode: 'development',
+    isPackaged: false,
+    platform: 'browser',
+    arch: 'unknown',
+    electronVersion: '',
+    chromeVersion: '',
+    nodeVersion: '',
+    v8Version: '',
+    userDataPath: '',
+    appPath: '',
+    resourcesPath: '',
+    executablePath: '',
+    currentWorkingDirectory: '',
+    settingsPath: '',
+    sessionPath: '',
+    secretsPath: '',
+    runtimeLogPath: '',
+    files: {
+      settings: { path: '', exists: false, size: 0 },
+      session: { path: '', exists: false, size: 0 },
+      secrets: { path: '', exists: false, size: 0 },
+      runtimeLog: { path: '', exists: false, size: 0 }
+    },
+    generatedAt: new Date().toISOString()
+  }),
+  openUserDataFolder: async () => undefined,
   getSecretStatus: async () => ({ dashscope: false, 'coding-plan': false }),
   saveApiKey: async () => undefined,
   importAttachments: async () => {

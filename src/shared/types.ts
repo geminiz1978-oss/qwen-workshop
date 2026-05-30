@@ -309,6 +309,42 @@ export interface RuntimeLogInfo {
   updatedAt?: string;
 }
 
+export interface DiagnosticFileInfo {
+  path: string;
+  exists: boolean;
+  size: number;
+  updatedAt?: string;
+}
+
+export interface AppDiagnosticsInfo {
+  appName: string;
+  appVersion: string;
+  mode: 'development' | 'packaged';
+  isPackaged: boolean;
+  platform: string;
+  arch: string;
+  electronVersion: string;
+  chromeVersion: string;
+  nodeVersion: string;
+  v8Version: string;
+  userDataPath: string;
+  appPath: string;
+  resourcesPath: string;
+  executablePath: string;
+  currentWorkingDirectory: string;
+  settingsPath: string;
+  sessionPath: string;
+  secretsPath: string;
+  runtimeLogPath: string;
+  files: {
+    settings: DiagnosticFileInfo;
+    session: DiagnosticFileInfo;
+    secrets: DiagnosticFileInfo;
+    runtimeLog: DiagnosticFileInfo;
+  };
+  generatedAt: string;
+}
+
 export interface SecretStatus {
   dashscope: boolean;
   'coding-plan': boolean;
@@ -393,6 +429,8 @@ export interface WorkshopApi {
   getRuntimeLog: () => Promise<RuntimeLogInfo>;
   clearRuntimeLog: () => Promise<RuntimeLogInfo>;
   openRuntimeLogExternal: () => Promise<void>;
+  getAppDiagnostics: () => Promise<AppDiagnosticsInfo>;
+  openUserDataFolder: () => Promise<void>;
   getSecretStatus: () => Promise<SecretStatus>;
   saveApiKey: (request: SaveApiKeyRequest) => Promise<void>;
   importAttachments: (request: ImportAttachmentsRequest) => Promise<AttachmentInfo[]>;
