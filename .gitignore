@@ -1,0 +1,12 @@
+node_modules/
+out/
+dist/
+build/
+coverage/
+.vite/
+.qwen-workshop-logs/
+.DS_Store
+*.log
+*.local
+.env
+.env.*

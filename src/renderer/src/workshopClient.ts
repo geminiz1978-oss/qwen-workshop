@@ -1,0 +1,92 @@
+import { DEFAULT_SETTINGS } from '@shared/qwenCatalog';
+import type { WorkshopApi } from '@shared/types';
+
+const mockWorkshop: WorkshopApi = {
+  isDesktopBridge: false,
+  resolveFilePaths: () => [],
+  selectWorkspace: async () => null,
+  loadFileTree: async () => [],
+  readWorkspaceFile: async () => {
+    throw new Error('Qwen Workshop desktop bridge is not available in browser preview.');
+  },
+  saveWorkspaceFile: async () => {
+    throw new Error('Qwen Workshop desktop bridge is not available in browser preview.');
+  },
+  openWorkspaceFileExternal: async () => undefined,
+  searchWorkspace: async () => [],
+  getWorkspaceMemory: async () => ({
+    path: '',
+    content: '# Qwen Workshop Memory\n\n## Project Rules\n- \n',
+    exists: false
+  }),
+  saveWorkspaceMemory: async (request) => ({
+    path: '',
+    content: request.content,
+    exists: false
+  }),
+  listWorkspaceCheckpoints: async () => [],
+  restoreWorkspaceCheckpoint: async () => {
+    throw new Error('Qwen Workshop desktop bridge is not available in browser preview.');
+  },
+  getGitStatus: async () => [],
+  getGitDiff: async () => [],
+  detectWorkspaceChecks: async () => [],
+  runWorkspaceCommand: async (request) => ({
+    command: request.command,
+    exitCode: null,
+    ok: false,
+    durationMs: 0,
+    stdout: '',
+    stderr: 'Qwen Workshop desktop bridge is not available in browser preview.'
+  }),
+  getSettings: async () => DEFAULT_SETTINGS,
+  saveSettings: async (settings) => settings,
+  getSession: async () => ({
+    recentWorkspaces: [],
+    workspaces: {},
+    updatedAt: new Date().toISOString()
+  }),
+  saveSession: async (session) => session,
+  exportTranscript: async () => null,
+  exportSettingsBackup: async () => null,
+  importSettingsBackup: async () => null,
+  exportSessionBackup: async () => null,
+  importSessionBackup: async () => null,
+  getRuntimeLog: async () => ({
+    path: '',
+    exists: false,
+    content: ''
+  }),
+  clearRuntimeLog: async () => ({
+    path: '',
+    exists: false,
+    content: ''
+  }),
+  openRuntimeLogExternal: async () => undefined,
+  getSecretStatus: async () => ({ dashscope: false, 'coding-plan': false }),
+  saveApiKey: async () => undefined,
+  importAttachments: async () => {
+    throw new Error('Qwen Workshop desktop bridge is not available in browser preview.');
+  },
+  testQwenConnection: async (request) => ({
+    ok: false,
+    message: 'Qwen Workshop desktop bridge is not available in browser preview.',
+    latencyMs: 0,
+    modelId: request.modelId,
+    endpointLabel: request.endpointKey
+  }),
+  startQwenRun: async () => {
+    throw new Error('Qwen Workshop desktop bridge is not available in browser preview.');
+  },
+  interruptQwenRun: async () => undefined,
+  onQwenEvent: () => () => undefined,
+  onQwenPermissionRequest: () => () => undefined,
+  respondQwenPermission: async () => undefined,
+  startPreview: async () => {
+    throw new Error('Qwen Workshop desktop bridge is not available in browser preview.');
+  },
+  stopPreview: async () => undefined,
+  onPreviewEvent: () => () => undefined
+};
+
+export const workshop: WorkshopApi = window.workshop ?? mockWorkshop;

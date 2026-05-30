@@ -1,0 +1,39 @@
+{
+  "name": "qwen-workshop",
+  "productName": "Qwen Workshop",
+  "version": "0.1.0",
+  "description": "A Qwen-native desktop agent workspace.",
+  "main": "./out/main/index.js",
+  "author": "Qwen Workshop",
+  "license": "UNLICENSED",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "dev:renderer": "vite --config vite.renderer.config.ts --host 127.0.0.1",
+    "build": "npm run typecheck && electron-vite build",
+    "preview": "electron-vite preview",
+    "smoke:desktop": "node scripts/smoke-electron.mjs",
+    "check:release": "npm run typecheck && npm test && npm run build && npm run smoke:desktop",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@qwen-code/sdk": "^0.1.7",
+    "lucide-react": "^0.468.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.1",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "electron": "^42.3.0",
+    "electron-vite": "^5.0.0",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.3",
+    "vitest": "^2.1.8"
+  }
+}
