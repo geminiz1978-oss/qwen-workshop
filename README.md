@@ -62,6 +62,8 @@ API keys are stored in Electron user data through `safeStorage`. They are not st
 - Markdown-style chat rendering with headings, lists, links, inline code, fenced code blocks, and copy-code buttons
 - Editable prompt library chips for common and custom Qwen tasks
 - Local estimated usage meter with a configurable soft limit
+- Qwen run lifecycle card with elapsed time, idle time, last activity, stalled-run warning, stop, and retry-last-prompt controls
+- Friendlier Qwen error classification for API keys, quota/rate limits, CLI launch failures, permission denials, network failures, and context limits
 - Session restore with recent projects, active transcripts, saved chat history, and preview state
 - Versioned settings and session storage that can read older raw JSON files
 - New-chat reset and Markdown transcript export

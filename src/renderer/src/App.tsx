@@ -15,6 +15,7 @@ import type {
   PreviewInfo,
   QwenConnectionTestResult,
   QwenPermissionRequest,
+  QwenRunStatus,
   QwenStreamEvent,
   SecretStatus,
   WorkspaceCheckpointInfo,
@@ -28,6 +29,7 @@ import type {
   WorkshopSessionSnapshot,
   WorkspaceInfo
 } from '@shared/types';
+import { formatQwenErrorForChat } from '@shared/qwenErrors';
 import { ChangeReviewPanel } from './components/ChangeReviewPanel';
 import { AgentPlanPanel } from './components/AgentPlanPanel';
 import { ActivityTimelinePanel } from './components/ActivityTimelinePanel';
@@ -62,6 +64,13 @@ const RIGHT_RAIL_VIEWS: Array<{ id: RightRailView; label: string }> = [
   { id: 'all', label: 'All' }
 ];
 
+const QWEN_STALL_MS = 45_000;
+
+interface LastRunRequest {
+  prompt: string;
+  attachments: AttachmentInfo[];
+}
+
 export function App(): JSX.Element {
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [secretStatus, setSecretStatus] = useState<SecretStatus>({ dashscope: false, 'coding-plan': false });
@@ -91,6 +100,9 @@ export function App(): JSX.Element {
   const [chatThreads, setChatThreads] = useState<ChatThreadRecord[]>([]);
   const [agentTodos, setAgentTodos] = useState<AgentTodoItem[]>([]);
   const [activeRunId, setActiveRunId] = useState<string | null>(null);
+  const [runStatus, setRunStatus] = useState<QwenRunStatus | null>(null);
+  const [runStatusNow, setRunStatusNow] = useState(() => Date.now());
+  const [lastRunRequest, setLastRunRequest] = useState<LastRunRequest | null>(null);
   const [permissionRequests, setPermissionRequests] = useState<QwenPermissionRequest[]>([]);
   const [previewInfo, setPreviewInfo] = useState<PreviewInfo | null>(null);
   const [previewLogs, setPreviewLogs] = useState<string[]>([]);
@@ -110,6 +122,7 @@ export function App(): JSX.Element {
   const chatThreadsRef = useRef<ChatThreadRecord[]>([]);
   const commandHistoryRef = useRef<WorkspaceCommandHistoryItem[]>([]);
   const agentTodosRef = useRef<AgentTodoItem[]>([]);
+  const interruptedRunIdsRef = useRef<Set<string>>(new Set());
   const sessionSaveTimerRef = useRef<number | undefined>(undefined);
   const sessionPersistenceReadyRef = useRef(false);
 
@@ -168,6 +181,20 @@ export function App(): JSX.Element {
   }, [agentTodos]);
 
   useEffect(() => {
+    if (!runStatus || !isRunInProgress(runStatus)) {
+      return;
+    }
+
+    const timer = window.setInterval(() => {
+      const now = Date.now();
+      setRunStatusNow(now);
+      setRunStatus((status) => markRunStalled(status, now));
+    }, 1000);
+
+    return () => window.clearInterval(timer);
+  }, [runStatus?.runId, runStatus?.phase]);
+
+  useEffect(() => {
     if (sessionPersistenceReadyRef.current) {
       scheduleSessionSave();
     }
@@ -202,6 +229,7 @@ export function App(): JSX.Element {
   const usageEstimate = useMemo(() => estimateUsageTokens(chatEntries), [chatEntries]);
   const usageLimit = settings?.usageLimitTokens ?? 0;
   const usagePercent = usageLimit ? Math.min(100, Math.round((usageEstimate / usageLimit) * 100)) : 0;
+  const isQwenRunning = Boolean(activeRunId) || Boolean(runStatus && isRunInProgress(runStatus));
   const currentThreadTitle = useMemo(() => deriveThreadTitle(chatEntries), [chatEntries]);
   const visibleMessageCount = useMemo(
     () => chatEntries.filter((entry) => entry.role !== 'raw').length,
@@ -325,7 +353,7 @@ export function App(): JSX.Element {
         label: 'New chat session',
         group: 'Chat',
         description: 'Archive the current transcript and start fresh',
-        disabled: !workspaceReady || Boolean(activeRunId),
+        disabled: !workspaceReady || isQwenRunning,
         run: () => startNewChatSession()
       },
       {
@@ -335,6 +363,14 @@ export function App(): JSX.Element {
         description: 'Save the visible transcript as Markdown',
         disabled: !workspaceReady || !visibleMessageCount,
         run: () => void exportTranscript()
+      },
+      {
+        id: 'chat-retry-last',
+        label: 'Retry last Qwen prompt',
+        group: 'Chat',
+        description: 'Send the last prompt and attachments again',
+        disabled: !workspaceReady || isQwenRunning || !lastRunRequest,
+        run: () => void retryLastQwen()
       },
       {
         id: 'preferences-open',
@@ -369,7 +405,7 @@ export function App(): JSX.Element {
         label: 'Import session backup',
         group: 'Settings',
         description: 'Restore recent workspaces, chats, command history, and panel state',
-        disabled: Boolean(activeRunId),
+        disabled: isQwenRunning,
         run: () => void importSessionBackup()
       },
       {
@@ -401,9 +437,10 @@ export function App(): JSX.Element {
 
     return [...baseActions, ...checkActions];
   }, [
-    activeRunId,
     isRunningCheck,
     isRunningTerminalCommand,
+    isQwenRunning,
+    lastRunRequest,
     previewInfo,
     visibleMessageCount,
     workspace,
@@ -1170,6 +1207,7 @@ export function App(): JSX.Element {
     }
 
     appendEntry('user', promptText, attachments);
+    setLastRunRequest({ prompt: promptText, attachments });
     setAgentTodos([]);
 
     try {
@@ -1185,22 +1223,83 @@ export function App(): JSX.Element {
         qwenExecutablePath: settings.qwenExecutablePath
       });
 
+      const startedAt = new Date().toISOString();
+      interruptedRunIdsRef.current.delete(result.runId);
       setActiveRunId(result.runId);
+      setRunStatus({
+        runId: result.runId,
+        phase: 'running',
+        modelId: settings.modelId,
+        modelName: activeModel.name,
+        endpointLabel: activeEndpoint.label,
+        permissionMode: settings.permissionMode,
+        prompt: promptText,
+        attachmentCount: attachments.length,
+        startedAt,
+        lastEventAt: startedAt,
+        lastEventKind: 'started'
+      });
+      setRunStatusNow(Date.now());
       pushToast('info', 'Qwen started', activeModel.name);
     } catch (error) {
-      appendEntry('error', error instanceof Error ? error.message : String(error));
+      const formatted = formatQwenErrorForChat(error);
+      const failedAt = new Date().toISOString();
+      setRunStatus({
+        runId: `failed-${crypto.randomUUID()}`,
+        phase: 'error',
+        modelId: settings.modelId,
+        modelName: activeModel.name,
+        endpointLabel: activeEndpoint.label,
+        permissionMode: settings.permissionMode,
+        prompt: promptText,
+        attachmentCount: attachments.length,
+        startedAt: failedAt,
+        lastEventAt: failedAt,
+        completedAt: failedAt,
+        errorText: formatted
+      });
+      appendEntry('error', formatted);
     }
   }
 
   async function interruptQwen(): Promise<void> {
-    if (!activeRunId) {
+    const runId = activeRunId;
+
+    if (!runId) {
       return;
     }
 
-    await workshop.interruptQwenRun(activeRunId);
-    setActiveRunId(null);
-    appendEntry('system', 'Qwen run interrupted.');
-    pushToast('warning', 'Qwen interrupted', 'The active run was stopped.');
+    interruptedRunIdsRef.current.add(runId);
+    const stoppedAt = new Date().toISOString();
+
+    try {
+      await workshop.interruptQwenRun(runId);
+    } catch (error) {
+      appendEntry('error', formatQwenErrorForChat(error));
+    } finally {
+      setActiveRunId((currentRunId) => (currentRunId === runId ? null : currentRunId));
+      setRunStatus((status) =>
+        status?.runId === runId
+          ? {
+              ...status,
+              phase: 'interrupted',
+              lastEventAt: stoppedAt,
+              completedAt: stoppedAt
+            }
+          : status
+      );
+      appendEntry('system', 'Qwen run interrupted.');
+      pushToast('warning', 'Qwen interrupted', 'The active run was stopped.');
+    }
+  }
+
+  async function retryLastQwen(): Promise<void> {
+    if (!lastRunRequest) {
+      appendEntry('error', 'There is no Qwen prompt to retry yet.');
+      return;
+    }
+
+    await startQwen(lastRunRequest.prompt, lastRunRequest.attachments);
   }
 
   async function startPreview(options: { automatic?: boolean } = {}): Promise<void> {
@@ -1254,6 +1353,8 @@ export function App(): JSX.Element {
   }
 
   function handleQwenEvent(event: QwenStreamEvent): void {
+    markRunEvent(event);
+
     if (event.kind === 'done') {
       void completeQwenRun();
     }
@@ -1272,7 +1373,50 @@ export function App(): JSX.Element {
       return;
     }
 
+    if (event.kind === 'error') {
+      if (event.fatal && interruptedRunIdsRef.current.has(event.runId)) {
+        return;
+      }
+
+      appendEntry('error', formatQwenErrorForChat(event.text));
+      return;
+    }
+
     appendEntry(event.kind, event.text);
+  }
+
+  function markRunEvent(event: QwenStreamEvent): void {
+    const observedAt = new Date().toISOString();
+    setRunStatusNow(Date.now());
+    setRunStatus((status) => {
+      if (!status || status.runId !== event.runId) {
+        return status;
+      }
+
+      if (status.phase === 'interrupted') {
+        return status;
+      }
+
+      const isFatalError = event.kind === 'error' && Boolean(event.fatal);
+      const isDone = event.kind === 'done';
+      const formattedError = event.kind === 'error' && event.text ? formatQwenErrorForChat(event.text) : status.errorText;
+
+      return {
+        ...status,
+        phase: isDone ? 'completed' : isFatalError ? 'error' : isRunInProgress(status) ? 'running' : status.phase,
+        lastEventAt: observedAt,
+        lastEventKind: event.kind,
+        ...(event.kind === 'tool' && event.text ? { lastTool: event.text } : {}),
+        ...(formattedError ? { errorText: formattedError } : {}),
+        ...(isDone || isFatalError ? { completedAt: observedAt } : {})
+      };
+    });
+
+    if (event.kind === 'error' && event.fatal) {
+      setActiveRunId((runId) => (runId === event.runId ? null : runId));
+      void refreshWorkspace();
+      void refreshProjectTools();
+    }
   }
 
   function handleQwenPermissionRequest(request: QwenPermissionRequest): void {
@@ -1296,7 +1440,18 @@ export function App(): JSX.Element {
   }
 
   async function completeQwenRun(): Promise<void> {
+    const completedAt = new Date().toISOString();
     setActiveRunId(null);
+    setRunStatus((status) =>
+      status && isRunInProgress(status)
+        ? {
+            ...status,
+            phase: 'completed',
+            lastEventAt: completedAt,
+            completedAt
+          }
+        : status
+    );
     const tree = await refreshWorkspace();
     await refreshProjectTools();
     pushToast('success', 'Qwen complete', 'Workspace refreshed after the run.');
@@ -1496,7 +1651,7 @@ export function App(): JSX.Element {
     }
 
     if (view === 'runtime') {
-      return activeRunId ? 'active' : `${commandHistory.length} cmds`;
+      return runStatus && isRunInProgress(runStatus) ? runStatus.phase : `${commandHistory.length} cmds`;
     }
 
     if (view === 'preview') {
@@ -1616,11 +1771,15 @@ export function App(): JSX.Element {
           ) : null}
           <ChatPanel
             entries={chatEntries}
-            isRunning={Boolean(activeRunId)}
+            isRunning={isQwenRunning}
+            runStatus={runStatus}
+            runStatusNow={runStatusNow}
+            canRetry={Boolean(workspace && lastRunRequest) && !isQwenRunning}
             workspaceReady={Boolean(workspace)}
             promptTemplates={settings.promptTemplates}
             onImportAttachments={importAttachments}
             onSubmit={startQwen}
+            onRetryLast={retryLastQwen}
             onExportTranscript={exportTranscript}
             onNewSession={startNewChatSession}
             onManagePromptTemplates={() => setIsPromptManagerOpen(true)}
@@ -1656,7 +1815,7 @@ export function App(): JSX.Element {
               previewInfo={previewInfo}
               usageText={`${formatTokenCount(usageEstimate)} / ${formatTokenCount(usageLimit)}`}
               usagePercent={usagePercent}
-              isRunning={Boolean(activeRunId)}
+              isRunning={isQwenRunning}
               onOpenWorkspace={selectWorkspace}
               onReviewChanges={openChangeReview}
               onStartPreview={() => startPreview()}
@@ -1670,7 +1829,7 @@ export function App(): JSX.Element {
               chatEntries={chatEntries}
               commandHistory={commandHistory}
               previewInfo={previewInfo}
-              isRunning={Boolean(activeRunId)}
+              isRunning={isQwenRunning}
             />
           ) : null}
 
@@ -1679,7 +1838,7 @@ export function App(): JSX.Element {
               currentTitle={currentThreadTitle}
               currentMessageCount={visibleMessageCount}
               threads={chatThreads}
-              isRunning={Boolean(activeRunId)}
+              isRunning={isQwenRunning}
               workspaceReady={Boolean(workspace)}
               onNewSession={startNewChatSession}
               onRestoreThread={restoreChatThread}
@@ -1713,7 +1872,7 @@ export function App(): JSX.Element {
           ) : null}
 
           {(rightRailView === 'build' || rightRailView === 'runtime' || rightRailView === 'all') ? (
-            <AgentPlanPanel todos={agentTodos} isRunning={Boolean(activeRunId)} />
+            <AgentPlanPanel todos={agentTodos} isRunning={isQwenRunning} />
           ) : null}
 
           {(rightRailView === 'build' || rightRailView === 'all') ? (
@@ -1812,6 +1971,26 @@ export function App(): JSX.Element {
       </button>
     </main>
   );
+}
+
+function isRunInProgress(status: QwenRunStatus): boolean {
+  return status.phase === 'running' || status.phase === 'stalled';
+}
+
+function markRunStalled(status: QwenRunStatus | null, now: number): QwenRunStatus | null {
+  if (!status || status.phase !== 'running') {
+    return status;
+  }
+
+  const lastEventAt = Date.parse(status.lastEventAt);
+  if (Number.isNaN(lastEventAt) || now - lastEventAt < QWEN_STALL_MS) {
+    return status;
+  }
+
+  return {
+    ...status,
+    phase: 'stalled'
+  };
 }
 
 function estimateUsageTokens(entries: ChatEntry[]): number {

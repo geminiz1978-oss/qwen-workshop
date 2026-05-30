@@ -24,14 +24,18 @@ import {
   X
 } from 'lucide-react';
 import { useEffect, useRef, useState, type DragEvent, type FormEvent } from 'react';
-import type { AttachmentInfo, ChatEntry, PromptTemplateConfig } from '@shared/types';
+import type { AttachmentInfo, ChatEntry, PromptTemplateConfig, QwenRunPhase, QwenRunStatus } from '@shared/types';
 
 interface ChatPanelProps {
   entries: ChatEntry[];
   isRunning: boolean;
+  runStatus: QwenRunStatus | null;
+  runStatusNow: number;
+  canRetry: boolean;
   workspaceReady: boolean;
   onSubmit: (prompt: string, attachments: AttachmentInfo[]) => Promise<void>;
   onImportAttachments: (files: File[]) => Promise<AttachmentInfo[]>;
+  onRetryLast: () => Promise<void>;
   onExportTranscript: () => Promise<void>;
   onNewSession: () => void;
   onManagePromptTemplates: () => void;
@@ -68,9 +72,13 @@ interface SpeechRecognitionConstructor {
 export function ChatPanel({
   entries,
   isRunning,
+  runStatus,
+  runStatusNow,
+  canRetry,
   workspaceReady,
   onSubmit,
   onImportAttachments,
+  onRetryLast,
   onExportTranscript,
   onNewSession,
   onManagePromptTemplates,
@@ -91,6 +99,7 @@ export function ChatPanel({
   const visibleEntries = entries.filter((entry) => entry.role !== 'raw');
   const rawEntries = entries.filter((entry) => entry.role === 'raw');
   const canSubmit = Boolean(prompt.trim() || pendingAttachments.length) && workspaceReady && !isRunning && !isImporting;
+  const isStalled = runStatus?.phase === 'stalled';
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
@@ -216,7 +225,7 @@ export function ChatPanel({
           <h2>Qwen session</h2>
         </div>
         <div className="chat-actions">
-          {isRunning ? <WorkingIndicator compact /> : null}
+          {isRunning ? <WorkingIndicator compact stalled={isStalled} /> : null}
           <button className="secondary-action raw-toggle" onClick={() => setRawOpen((open) => !open)} disabled={!rawEntries.length}>
             <Terminal size={15} />
             Raw {rawEntries.length}
@@ -238,6 +247,17 @@ export function ChatPanel({
           ) : null}
         </div>
       </div>
+
+      {runStatus ? (
+        <RunStatusPanel
+          canRetry={canRetry}
+          isRunning={isRunning}
+          now={runStatusNow}
+          onInterrupt={onInterrupt}
+          onRetryLast={onRetryLast}
+          status={runStatus}
+        />
+      ) : null}
 
       <div className="chat-scroll" ref={scrollRef}>
         {visibleEntries.length ? (
@@ -264,7 +284,7 @@ export function ChatPanel({
         </section>
       ) : null}
 
-      {isRunning ? <WorkingIndicator /> : null}
+      {isRunning ? <WorkingIndicator stalled={isStalled} /> : null}
 
       {pendingAttachments.length ? (
         <AttachmentTray attachments={pendingAttachments} onRemove={removeAttachment} />
@@ -379,11 +399,79 @@ function AttachmentTray({
   );
 }
 
-function WorkingIndicator({ compact = false }: { compact?: boolean }): JSX.Element {
+function RunStatusPanel({
+  status,
+  now,
+  canRetry,
+  isRunning,
+  onRetryLast,
+  onInterrupt
+}: {
+  status: QwenRunStatus;
+  now: number;
+  canRetry: boolean;
+  isRunning: boolean;
+  onRetryLast: () => Promise<void>;
+  onInterrupt: () => Promise<void>;
+}): JSX.Element {
+  const elapsedMs = getRunElapsedMs(status, now);
+  const idleMs = Math.max(0, now - Date.parse(status.lastEventAt));
+  const statusText = status.phase === 'stalled' ? `No stream update for ${formatDuration(idleMs)}` : phaseDescription(status.phase);
+  const lastActivity = status.lastTool ?? (status.lastEventKind ? labelForEventKind(status.lastEventKind) : 'Starting Qwen');
+
   return (
-    <div className={compact ? 'agent-working compact' : 'agent-working'} role="status" aria-live="polite">
+    <section className={`run-status-panel phase-${status.phase}`} aria-label="Qwen run status">
+      <div className="run-status-heading">
+        <span className="run-status-light" aria-hidden="true" />
+        <div className="run-status-title">
+          <strong>{labelForRunPhase(status.phase)}</strong>
+          <span>
+            {status.modelName} | {status.endpointLabel} | {status.permissionMode}
+          </span>
+        </div>
+        <div className="run-status-actions">
+          <button className="secondary-action" disabled={!canRetry} onClick={() => void onRetryLast()} type="button">
+            <RefreshCw size={14} />
+            Retry
+          </button>
+          {isRunning ? (
+            <button className="secondary-action danger" onClick={() => void onInterrupt()} type="button">
+              <CircleStop size={14} />
+              Stop
+            </button>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="run-status-metrics">
+        <span>
+          Elapsed <strong>{formatDuration(elapsedMs)}</strong>
+        </span>
+        <span>
+          Idle <strong>{formatDuration(idleMs)}</strong>
+        </span>
+        <span>
+          Files <strong>{status.attachmentCount}</strong>
+        </span>
+        <span title={lastActivity}>
+          Last <strong>{lastActivity}</strong>
+        </span>
+      </div>
+
+      <p className="run-status-detail">{statusText}</p>
+      <p className="run-status-prompt" title={status.prompt}>
+        {status.prompt || 'Attachment review'}
+      </p>
+      {status.errorText ? <p className="run-status-error">{compactLine(status.errorText, 180)}</p> : null}
+    </section>
+  );
+}
+
+function WorkingIndicator({ compact = false, stalled = false }: { compact?: boolean; stalled?: boolean }): JSX.Element {
+  return (
+    <div className={`${compact ? 'agent-working compact' : 'agent-working'} ${stalled ? 'stalled' : ''}`} role="status" aria-live="polite">
       <Hourglass className="working-hourglass" size={compact ? 14 : 15} />
-      <span>{compact ? 'Working' : 'Qwen is thinking and editing'}</span>
+      <span>{compact ? (stalled ? 'Waiting' : 'Working') : stalled ? 'Qwen is quiet, still waiting' : 'Qwen is thinking and editing'}</span>
       <span className="working-dots" aria-hidden="true">
         <span />
         <span />
@@ -391,6 +479,102 @@ function WorkingIndicator({ compact = false }: { compact?: boolean }): JSX.Eleme
       </span>
     </div>
   );
+}
+
+function labelForRunPhase(phase: QwenRunPhase): string {
+  switch (phase) {
+    case 'running':
+      return 'Qwen is working';
+    case 'stalled':
+      return 'Waiting on Qwen';
+    case 'completed':
+      return 'Run complete';
+    case 'error':
+      return 'Needs attention';
+    case 'interrupted':
+      return 'Run stopped';
+  }
+}
+
+function phaseDescription(phase: QwenRunPhase): string {
+  switch (phase) {
+    case 'running':
+      return 'Streaming updates, using tools, or thinking between steps.';
+    case 'stalled':
+      return 'No new stream updates yet.';
+    case 'completed':
+      return 'The workspace was refreshed after Qwen finished.';
+    case 'error':
+      return 'Review the error, then retry or adjust the task.';
+    case 'interrupted':
+      return 'The run was stopped by the user.';
+  }
+}
+
+function labelForEventKind(kind: ChatEntry['role']): string {
+  if (kind === 'assistant') {
+    return 'Response';
+  }
+
+  if (kind === 'reasoning') {
+    return 'Reasoning';
+  }
+
+  if (kind === 'tool') {
+    return 'Tool';
+  }
+
+  if (kind === 'todo') {
+    return 'Plan';
+  }
+
+  if (kind === 'raw') {
+    return 'Stream';
+  }
+
+  if (kind === 'error') {
+    return 'Error';
+  }
+
+  if (kind === 'done') {
+    return 'Done';
+  }
+
+  return 'Start';
+}
+
+function getRunElapsedMs(status: QwenRunStatus, now: number): number {
+  const start = Date.parse(status.startedAt);
+  const end = status.completedAt ? Date.parse(status.completedAt) : now;
+
+  if (Number.isNaN(start) || Number.isNaN(end)) {
+    return 0;
+  }
+
+  return Math.max(0, end - start);
+}
+
+function formatDuration(value: number): string {
+  const totalSeconds = Math.max(0, Math.floor(value / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+
+  if (minutes >= 60) {
+    const hours = Math.floor(minutes / 60);
+    const remainingMinutes = minutes % 60;
+    return `${hours}h ${remainingMinutes}m`;
+  }
+
+  if (minutes > 0) {
+    return `${minutes}m ${seconds.toString().padStart(2, '0')}s`;
+  }
+
+  return `${seconds}s`;
+}
+
+function compactLine(value: string, limit: number): string {
+  const singleLine = value.replace(/\s+/g, ' ').trim();
+  return singleLine.length > limit ? `${singleLine.slice(0, limit - 3)}...` : singleLine;
 }
 
 function ChatBubble({ entry }: { entry: ChatEntry }): JSX.Element {

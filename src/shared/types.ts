@@ -192,6 +192,7 @@ export interface QwenStreamEvent {
   text?: string;
   raw?: unknown;
   todos?: AgentTodoItem[];
+  fatal?: boolean;
 }
 
 export interface QwenPermissionRequest {
@@ -215,6 +216,25 @@ export interface ChatEntry {
   text: string;
   createdAt: string;
   attachments?: AttachmentInfo[];
+}
+
+export type QwenRunPhase = 'running' | 'stalled' | 'completed' | 'error' | 'interrupted';
+
+export interface QwenRunStatus {
+  runId: string;
+  phase: QwenRunPhase;
+  modelId: string;
+  modelName: string;
+  endpointLabel: string;
+  permissionMode: PermissionMode;
+  prompt: string;
+  attachmentCount: number;
+  startedAt: string;
+  lastEventAt: string;
+  lastEventKind?: QwenEventKind;
+  lastTool?: string;
+  errorText?: string;
+  completedAt?: string;
 }
 
 export interface PreviewStartRequest {

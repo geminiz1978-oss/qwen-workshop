@@ -20,6 +20,9 @@ Qwen Workshop is a Qwen-native desktop agent workspace. It gives Qwen a local ho
 - Qwen responses render common Markdown patterns such as headings, bullet lists, links, inline code, and fenced code blocks.
 - Use Copy code on a fenced code block when you only need the snippet instead of the whole message.
 - Reasoning is collapsed by default, while raw stream events live in the Raw drawer for debugging.
+- The run status card shows elapsed time, idle time, last activity, attachment count, current phase, Stop, and Retry.
+- If Qwen goes quiet for a while, the status changes to Waiting on Qwen so you know the app has not lost track of the run.
+- Use Retry after a failed or completed run to send the last prompt and attachments again.
 - Use prompt chips for repeated tasks and open the template manager to add, edit, delete, or reset those chips.
 
 ## Workspace Dashboard
@@ -131,6 +134,7 @@ Qwen Workshop is a Qwen-native desktop agent workspace. It gives Qwen a local ho
 - If preview shows Qwen Workshop instead of your project, stop preview and start it again after opening the right workspace.
 - If a command fails on Windows, try the .cmd version, such as npm.cmd.
 - If Qwen appears quiet while thinking, watch the working indicator, plan panel, tool rows, and raw drawer.
+- If a run fails, Qwen Workshop classifies common errors such as missing keys, quota/rate limits, CLI launch failures, permission denials, network issues, and context limits with a next step.
 - Use the Runtime diagnostics panel to inspect app mode, Electron and Node versions, storage paths, settings/session/log file status, renderer crashes, unresponsive events, child process exits, and uncaught desktop errors.
 - Use Copy diagnostics when you need one support bundle with app environment details and the runtime log tail.
 - If the app feels stuck, stop the active Qwen run before switching sessions, importing settings, or starting another run.

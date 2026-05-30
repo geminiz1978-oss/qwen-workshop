@@ -218,7 +218,8 @@ export class QwenSessionService {
       this.emit(window, {
         runId,
         kind: 'error',
-        text: isUsageLimitError(message) ? formatUsageLimitError(message) : message
+        text: isUsageLimitError(message) ? formatUsageLimitError(message) : message,
+        fatal: true
       });
     } finally {
       this.runs.delete(runId);
@@ -298,7 +299,7 @@ export class QwenSessionService {
       if (blockType === 'tool_result') {
         const isError = Boolean(block.is_error);
         if (isError) {
-          this.emit(window, { runId, kind: 'error', raw: block, text: summarizeToolResultBlock(block) });
+          this.emit(window, { runId, kind: 'error', raw: block, text: summarizeToolResultBlock(block), fatal: false });
         }
       }
     }
@@ -309,7 +310,7 @@ export class QwenSessionService {
 
     for (const block of blocks) {
       if (readStringProperty(block, 'type') === 'tool_result' && Boolean(block.is_error)) {
-        this.emit(window, { runId, kind: 'error', raw: block, text: summarizeToolResultBlock(block) });
+        this.emit(window, { runId, kind: 'error', raw: block, text: summarizeToolResultBlock(block), fatal: false });
       }
     }
   }
@@ -324,7 +325,7 @@ export class QwenSessionService {
     if (record.is_error) {
       const errorRecord = record.error && typeof record.error === 'object' ? (record.error as Record<string, unknown>) : {};
       const message = readStringProperty(errorRecord, 'message') || readText(record.result) || 'Qwen run failed.';
-      this.emit(window, { runId, kind: 'error', raw: record, text: message });
+      this.emit(window, { runId, kind: 'error', raw: record, text: message, fatal: true });
       return;
     }
 
