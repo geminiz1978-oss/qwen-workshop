@@ -99,6 +99,7 @@ export function ChatPanel({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const visibleEntries = entries.filter((entry) => entry.role !== 'raw');
+  const renderItems = buildChatRenderItems(visibleEntries);
   const rawEntries = entries.filter((entry) => entry.role === 'raw');
   const canSubmit = Boolean(prompt.trim() || pendingAttachments.length) && workspaceReady && !isRunning && !isImporting;
   const isStalled = runStatus?.phase === 'stalled';
@@ -300,8 +301,14 @@ export function ChatPanel({
       ) : null}
 
       <div className="chat-scroll" ref={scrollRef}>
-        {visibleEntries.length ? (
-          visibleEntries.map((entry) => <ChatBubble entry={entry} key={entry.id} />)
+        {renderItems.length ? (
+          renderItems.map((item) =>
+            item.kind === 'activity' ? (
+              <ChatActivityGroup entries={item.entries} key={item.id} />
+            ) : (
+              <ChatBubble entry={item.entry} key={item.entry.id} />
+            )
+          )
         ) : (
           <div className="empty-chat">
             <Bot size={28} />
@@ -418,6 +425,61 @@ function formatTranscriptEntry(entry: ChatEntry): string {
   return `${labelForRole(entry.role)}\n${entry.text}${attachments}`;
 }
 
+export type ChatRenderItem =
+  | {
+      id: string;
+      kind: 'activity';
+      entries: ChatEntry[];
+    }
+  | {
+      kind: 'entry';
+      entry: ChatEntry;
+    };
+
+export function buildChatRenderItems(entries: ChatEntry[]): ChatRenderItem[] {
+  const items: ChatRenderItem[] = [];
+  let activityEntries: ChatEntry[] = [];
+
+  function flushActivity(): void {
+    if (!activityEntries.length) {
+      return;
+    }
+
+    const first = activityEntries[0];
+    const last = activityEntries[activityEntries.length - 1];
+    items.push({
+      id: `activity-${first.id}-${last.id}`,
+      kind: 'activity',
+      entries: activityEntries
+    });
+    activityEntries = [];
+  }
+
+  for (const entry of entries) {
+    if (isInternalActivityEntry(entry)) {
+      activityEntries.push(entry);
+      continue;
+    }
+
+    if (entry.role === 'user') {
+      flushActivity();
+    }
+
+    items.push({ kind: 'entry', entry });
+
+    if (entry.role === 'done' || entry.role === 'error') {
+      flushActivity();
+    }
+  }
+
+  flushActivity();
+  return items;
+}
+
+function isInternalActivityEntry(entry: ChatEntry): boolean {
+  return entry.role === 'reasoning' || entry.role === 'tool' || entry.role === 'started' || entry.role === 'todo';
+}
+
 function AttachmentTray({
   attachments,
   onRemove
@@ -438,6 +500,55 @@ function AttachmentTray({
         </div>
       ))}
     </div>
+  );
+}
+
+function ChatActivityGroup({ entries }: { entries: ChatEntry[] }): JSX.Element {
+  const [copied, setCopied] = useState(false);
+  const reasoningCount = entries.filter((entry) => entry.role === 'reasoning').length;
+  const toolCount = entries.filter((entry) => entry.role === 'tool').length;
+  const latestEntry = entries[entries.length - 1];
+
+  async function copyActivity(): Promise<void> {
+    await copyText(entries.map(formatTranscriptEntry).join('\n\n---\n\n'));
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1200);
+  }
+
+  return (
+    <article className="chat-activity-group">
+      <details>
+        <summary>
+          <span className="activity-group-title">
+            <Brain size={15} />
+            Qwen activity
+          </span>
+          <span className="activity-group-summary">
+            {entries.length} events
+            {reasoningCount ? ` · ${reasoningCount} reasoning` : ''}
+            {toolCount ? ` · ${toolCount} tools` : ''}
+            {latestEntry ? ` · Latest: ${compactLine(latestEntry.text, 82)}` : ''}
+          </span>
+        </summary>
+        <div className="activity-group-toolbar">
+          <button className="bubble-copy" onClick={() => void copyActivity()} type="button">
+            {copied ? <Check size={13} /> : <Copy size={13} />}
+            <span>{copied ? 'Copied' : 'Copy activity'}</span>
+          </button>
+        </div>
+        <div className="activity-event-list">
+          {entries.map((entry) => (
+            <details className={`activity-event ${entry.role}`} key={entry.id}>
+              <summary>
+                <span>{labelForRole(entry.role)}</span>
+                <code>{compactLine(entry.text, 140)}</code>
+              </summary>
+              <pre>{entry.text}</pre>
+            </details>
+          ))}
+        </div>
+      </details>
+    </article>
   );
 }
 

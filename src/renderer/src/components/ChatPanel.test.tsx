@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { splitMessageBlocks } from './ChatPanel';
+import type { ChatEntry } from '@shared/types';
+import { buildChatRenderItems, splitMessageBlocks } from './ChatPanel';
 
 describe('splitMessageBlocks', () => {
   it('splits prose and fenced code blocks for the chat renderer', () => {
@@ -36,3 +37,35 @@ describe('splitMessageBlocks', () => {
     ]);
   });
 });
+
+describe('buildChatRenderItems', () => {
+  it('collapses reasoning and tool chatter into activity groups', () => {
+    const entries: ChatEntry[] = [
+      chatEntry('1', 'user', 'fix the game'),
+      chatEntry('2', 'reasoning', 'thinking'),
+      chatEntry('3', 'tool', 'read file'),
+      chatEntry('4', 'assistant', 'fixed it'),
+      chatEntry('5', 'done', 'complete')
+    ];
+
+    const items = buildChatRenderItems(entries);
+
+    expect(items.map((item) => item.kind)).toEqual(['entry', 'entry', 'entry', 'activity']);
+    expect(items[3]).toMatchObject({
+      kind: 'activity',
+      entries: [
+        { id: '2', role: 'reasoning' },
+        { id: '3', role: 'tool' }
+      ]
+    });
+  });
+});
+
+function chatEntry(id: string, role: ChatEntry['role'], text: string): ChatEntry {
+  return {
+    id,
+    role,
+    text,
+    createdAt: '2026-05-30T00:00:00.000Z'
+  };
+}
