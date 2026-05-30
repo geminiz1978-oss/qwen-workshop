@@ -1,13 +1,5 @@
 # Qwen Workshop
-### Interface Preview
-<p align="center">
-  <img src="Screenshot (216).jpg" width="45%" alt="Qwen Workshop Dashboard" />
-  <img src="Screenshot (217).jpg" width="45%" alt="Model Selection" />
-</p>
-<p align="center">
-  <img src="Screenshot (218).jpg" width="45%" alt="Agent Checklist" />
-  <img src="Screenshot (219).jpg" width="45%" alt="Permission Settings" />
-</p>
+
 Qwen Workshop is a Qwen-native desktop agent workspace. It is designed as a modern dark GUI home for Qwen Code: open a folder, chat with Qwen, let it edit locally, review activity, and preview running apps in one place.
 
 ## Why This Exists
@@ -111,3 +103,14 @@ npm run check:release
 The first prototype defaults to `qwen3.7-max` with the Singapore Model Studio endpoint. If your Alibaba Cloud account has not enabled that model, switch to another Qwen model in the settings bar.
 
 The owner's manual lives at `docs/OWNERS_MANUAL.md` and is also available inside the app from the help button, F1, or the command palette.
+
+
+### Interface Preview
+<p align="center">
+  <img src="Screenshot (216).jpg" width="45%" alt="Qwen Workshop Dashboard" />
+  <img src="Screenshot (217).jpg" width="45%" alt="Model Selection" />
+</p>
+<p align="center">
+  <img src="Screenshot (218).jpg" width="45%" alt="Agent Checklist" />
+  <img src="Screenshot (219).jpg" width="45%" alt="Permission Settings" />
+</p>
