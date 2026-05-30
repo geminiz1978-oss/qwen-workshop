@@ -461,15 +461,7 @@ export function buildChatRenderItems(entries: ChatEntry[]): ChatRenderItem[] {
       continue;
     }
 
-    if (entry.role === 'user') {
-      flushActivity();
-    }
-
     items.push({ kind: 'entry', entry });
-
-    if (entry.role === 'done' || entry.role === 'error') {
-      flushActivity();
-    }
   }
 
   flushActivity();
