@@ -108,6 +108,48 @@ For a fuller release-confidence pass, run:
 npm run check:release
 ```
 
+## Desktop Builds
+
+For a local runnable Windows desktop build:
+
+```bash
+npm run pack
+npm run smoke:packaged
+```
+
+The unpacked app is created at:
+
+```text
+release/win-unpacked/Qwen Workshop.exe
+```
+
+For distributable Windows artifacts:
+
+```bash
+npm run dist:win
+```
+
+This produces:
+
+```text
+release/Qwen-Workshop-0.1.0-x64-Setup.exe
+release/Qwen-Workshop-0.1.0-x64-Portable.exe
+```
+
+For the full package confidence pass:
+
+```bash
+npm run check:package
+```
+
+If you change the app icon source PNG, regenerate the Windows `.ico` before packaging:
+
+```bash
+npm run icons:win
+```
+
+Current Windows builds are unsigned development artifacts, so Windows SmartScreen may warn until a trusted code-signing certificate or Microsoft Store packaging path is added.
+
 ## Notes
 
 The first prototype defaults to `qwen3.7-max` with the Singapore Model Studio endpoint. If your Alibaba Cloud account has not enabled that model, switch to another Qwen model in the settings bar.
