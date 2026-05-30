@@ -232,7 +232,7 @@ export function App(): JSX.Element {
   const isQwenRunning = Boolean(activeRunId) || Boolean(runStatus && isRunInProgress(runStatus));
   const currentThreadTitle = useMemo(() => deriveThreadTitle(chatEntries), [chatEntries]);
   const visibleMessageCount = useMemo(
-    () => chatEntries.filter((entry) => entry.role !== 'raw').length,
+    () => chatEntries.filter(isUserFacingChatEntry).length,
     [chatEntries]
   );
   const commandPaletteActions = useMemo<CommandPaletteAction[]>(() => {
@@ -355,6 +355,14 @@ export function App(): JSX.Element {
         description: 'Archive the current transcript and start fresh',
         disabled: !workspaceReady || isQwenRunning,
         run: () => startNewChatSession()
+      },
+      {
+        id: 'chat-delete-current',
+        label: 'Delete current chat',
+        group: 'Chat',
+        description: 'Clear the active chat without saving it to history',
+        disabled: !workspaceReady || isQwenRunning || !visibleMessageCount,
+        run: () => deleteCurrentChatSession()
       },
       {
         id: 'chat-export',
@@ -905,14 +913,14 @@ export function App(): JSX.Element {
 
   async function exportTranscript(): Promise<void> {
     const currentWorkspace = workspaceRef.current;
-    const entries = chatEntriesRef.current;
+    const entries = chatEntriesRef.current.filter(isUserFacingChatEntry);
 
     if (!currentWorkspace) {
       appendEntry('error', 'Open a workspace before exporting a transcript.');
       return;
     }
 
-    if (!entries.some((entry) => entry.role !== 'raw')) {
+    if (!entries.length) {
       appendEntry('error', 'There is no visible transcript to export yet.');
       return;
     }
@@ -1046,7 +1054,7 @@ export function App(): JSX.Element {
       return;
     }
 
-    const visibleEntries = chatEntriesRef.current.filter((entry) => entry.role !== 'raw');
+    const visibleEntries = chatEntriesRef.current.filter(isUserFacingChatEntry);
     if (visibleEntries.length && !window.confirm('Start a new chat session for this workspace? The current transcript will be cleared from the app session.')) {
       return;
     }
@@ -1102,6 +1110,33 @@ export function App(): JSX.Element {
     }
 
     setChatThreads((threads) => threads.filter((item) => item.id !== threadId));
+  }
+
+  function deleteCurrentChatSession(): void {
+    if (activeRunId) {
+      appendEntry('error', 'Stop the active Qwen run before deleting the current chat.');
+      return;
+    }
+
+    const visibleEntries = chatEntriesRef.current.filter(isUserFacingChatEntry);
+    if (!visibleEntries.length) {
+      setChatEntries([]);
+      setAgentTodos([]);
+      setPermissionRequests([]);
+      setRunStatus(null);
+      setLastRunRequest(null);
+      return;
+    }
+
+    if (!window.confirm('Delete the current chat? This clears it from the app session without saving it to history.')) {
+      return;
+    }
+
+    setChatEntries([]);
+    setAgentTodos([]);
+    setPermissionRequests([]);
+    setRunStatus(null);
+    setLastRunRequest(null);
   }
 
   async function saveSettings(nextSettings: AppSettings): Promise<void> {
@@ -1578,7 +1613,7 @@ export function App(): JSX.Element {
   }
 
   function buildThreadFromCurrentSession(): ChatThreadRecord | null {
-    const visibleEntries = chatEntriesRef.current.filter((entry) => entry.role !== 'raw');
+    const visibleEntries = chatEntriesRef.current.filter(isUserFacingChatEntry);
 
     if (!visibleEntries.length) {
       return null;
@@ -1782,6 +1817,7 @@ export function App(): JSX.Element {
             onRetryLast={retryLastQwen}
             onExportTranscript={exportTranscript}
             onNewSession={startNewChatSession}
+            onDeleteSession={deleteCurrentChatSession}
             onManagePromptTemplates={() => setIsPromptManagerOpen(true)}
             onInterrupt={interruptQwen}
           />
@@ -1841,6 +1877,7 @@ export function App(): JSX.Element {
               isRunning={isQwenRunning}
               workspaceReady={Boolean(workspace)}
               onNewSession={startNewChatSession}
+              onDeleteCurrentSession={deleteCurrentChatSession}
               onRestoreThread={restoreChatThread}
               onDeleteThread={deleteChatThread}
             />
@@ -1977,6 +2014,10 @@ function isRunInProgress(status: QwenRunStatus): boolean {
   return status.phase === 'running' || status.phase === 'stalled';
 }
 
+function isUserFacingChatEntry(entry: ChatEntry): boolean {
+  return entry.role !== 'raw' && entry.role !== 'reasoning' && entry.role !== 'tool' && entry.role !== 'started' && entry.role !== 'todo';
+}
+
 function markRunStalled(status: QwenRunStatus | null, now: number): QwenRunStatus | null {
   if (!status || status.phase !== 'running') {
     return status;
@@ -2005,7 +2046,7 @@ function estimateUsageTokens(entries: ChatEntry[]): number {
 
 function deriveThreadTitle(entries: ChatEntry[]): string {
   const userEntry = entries.find((entry) => entry.role === 'user' && entry.text.trim());
-  const fallbackEntry = entries.find((entry) => entry.role !== 'raw' && entry.text.trim());
+  const fallbackEntry = entries.find((entry) => isUserFacingChatEntry(entry) && entry.text.trim());
   const source = userEntry?.text ?? fallbackEntry?.text ?? 'New chat';
   const singleLine = source.replace(/\s+/g, ' ').trim();
 

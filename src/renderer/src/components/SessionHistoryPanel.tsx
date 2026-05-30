@@ -8,6 +8,7 @@ interface SessionHistoryPanelProps {
   isRunning: boolean;
   workspaceReady: boolean;
   onNewSession: () => void;
+  onDeleteCurrentSession: () => void;
   onRestoreThread: (threadId: string) => void;
   onDeleteThread: (threadId: string) => void;
 }
@@ -19,6 +20,7 @@ export function SessionHistoryPanel({
   isRunning,
   workspaceReady,
   onNewSession,
+  onDeleteCurrentSession,
   onRestoreThread,
   onDeleteThread
 }: SessionHistoryPanelProps): JSX.Element {
@@ -29,16 +31,27 @@ export function SessionHistoryPanel({
           <span className="eyebrow">Sessions</span>
           <h2>Chat history</h2>
         </div>
-        <button className="secondary-action" disabled={!workspaceReady || isRunning} onClick={onNewSession}>
+        <button className="secondary-action" disabled={!workspaceReady || isRunning} onClick={onNewSession} type="button">
           <MessageSquare size={15} />
           New
         </button>
       </div>
 
       <div className="current-session-card" title={currentTitle}>
-        <span>Current</span>
-        <strong>{currentTitle}</strong>
-        <small>{currentMessageCount ? `${currentMessageCount} messages` : 'No messages yet'}</small>
+        <div className="current-session-copy">
+          <span>Current</span>
+          <strong>{currentTitle}</strong>
+          <small>{currentMessageCount ? `${currentMessageCount} messages` : 'No messages yet'}</small>
+        </div>
+        <button
+          className="icon-button danger"
+          disabled={isRunning || !currentMessageCount}
+          onClick={onDeleteCurrentSession}
+          title="Delete current chat"
+          type="button"
+        >
+          <Trash2 size={14} />
+        </button>
       </div>
 
       <div className="session-thread-list">
@@ -53,9 +66,7 @@ export function SessionHistoryPanel({
                 type="button"
               >
                 <strong>{thread.title}</strong>
-                <span>
-                  {thread.chatEntries.length} messages · {formatDate(thread.updatedAt)}
-                </span>
+                <span>{visibleChatEntryCount(thread)} messages - {formatDate(thread.updatedAt)}</span>
               </button>
               <button
                 className="icon-button"
@@ -83,6 +94,12 @@ export function SessionHistoryPanel({
       </div>
     </section>
   );
+}
+
+function visibleChatEntryCount(thread: ChatThreadRecord): number {
+  return thread.chatEntries.filter(
+    (entry) => entry.role !== 'raw' && entry.role !== 'reasoning' && entry.role !== 'tool' && entry.role !== 'started' && entry.role !== 'todo'
+  ).length;
 }
 
 function formatDate(value: string): string {
