@@ -74,8 +74,8 @@ let mainWindow: BrowserWindow | undefined;
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
-    width: 1480,
-    height: 940,
+    width: layoutSmokeMode ? 1120 : 1480,
+    height: layoutSmokeMode ? 720 : 940,
     minWidth: 1120,
     minHeight: 720,
     show: !smokeMode,

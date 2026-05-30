@@ -263,7 +263,7 @@ button {
 
 .center-stack {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: minmax(0, auto) minmax(220px, 1fr);
   min-width: 0;
   overflow: hidden;
   overscroll-behavior: none;
@@ -642,6 +642,10 @@ button {
 }
 
 .settings-band {
+  max-height: min(320px, 42dvh);
+  min-height: 0;
+  overflow: auto;
+  scrollbar-gutter: stable;
   border-bottom: 1px solid var(--line);
   background: #131316;
   padding: 12px;
