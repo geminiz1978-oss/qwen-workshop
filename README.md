@@ -97,6 +97,8 @@ PowerShell may block npm `.ps1` shims on Windows. Use `npm.cmd` if that happens.
 
 ## Build Checks
 
+GitHub Actions runs CI on pushes and pull requests to `main`.
+
 ```bash
 npm run typecheck
 npm test
@@ -119,6 +121,8 @@ npm run smoke:qwen
 The release checklist lives at `docs/RELEASE_CHECKLIST.md`.
 
 ## Desktop Builds
+
+The `Windows Release Build` GitHub Action can build the Windows artifacts and upload them for download. When run from a `v*` tag, or manually with `create_release=true`, it creates a draft prerelease with the `.exe` files attached.
 
 For a local runnable Windows desktop build:
 

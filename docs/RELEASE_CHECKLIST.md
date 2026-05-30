@@ -11,6 +11,8 @@ Use this before sharing a build, uploading artifacts, or asking someone else to 
 
 ## Automated Checks
 
+GitHub runs `.github/workflows/ci.yml` on pushes and pull requests to `main`. It installs dependencies with `npm ci`, then runs the release confidence checks.
+
 ```powershell
 npm.cmd run check:release
 ```
@@ -53,6 +55,8 @@ Run this after `npm.cmd run pack` or `npm.cmd run check:package` when you want t
 ## Packaging Pass
 
 - Run `npm.cmd run dist:win` when distributable artifacts are needed.
+- Use the `Windows Release Build` GitHub Action when you want CI-built Windows artifacts.
+- Push a `v*` tag or run the workflow manually with `create_release=true` to create a draft prerelease with the generated `.exe` files attached.
 - Install the setup build on a clean-ish Windows profile when possible.
 - Launch the portable build once.
 - Confirm Windows SmartScreen warnings are expected for unsigned local builds.
