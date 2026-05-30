@@ -110,6 +110,14 @@ For a fuller release-confidence pass, run:
 npm run check:release
 ```
 
+For the optional paid end-to-end Qwen smoke test, save a Qwen API key in the desktop app first, then run:
+
+```bash
+npm run smoke:qwen
+```
+
+The release checklist lives at `docs/RELEASE_CHECKLIST.md`.
+
 ## Desktop Builds
 
 For a local runnable Windows desktop build:
@@ -142,6 +150,12 @@ For the full package confidence pass:
 
 ```bash
 npm run check:package
+```
+
+After `npm run pack` or `npm run check:package`, the optional packaged real-Qwen smoke test is:
+
+```bash
+npm run smoke:qwen:packaged
 ```
 
 If you change the app icon source PNG, regenerate the Windows `.ico` before packaging:

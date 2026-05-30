@@ -41,9 +41,11 @@ app.setName('Qwen Workshop');
 app.setAppUserModelId('com.qwenworkshop.app');
 
 const smokeMode = process.argv.includes('--qwen-workshop-smoke') || process.env.QWEN_WORKSHOP_SMOKE === '1';
+const realQwenSmokeMode = smokeMode && process.env.QWEN_WORKSHOP_REAL_QWEN_SMOKE === '1';
+const smokeUserDataPath = process.env.QWEN_WORKSHOP_SMOKE_USER_DATA?.trim();
 
 if (smokeMode) {
-  app.setPath('userData', join(tmpdir(), 'qwen-workshop-smoke'));
+  app.setPath('userData', smokeUserDataPath || join(tmpdir(), 'qwen-workshop-smoke'));
 }
 
 process.on('uncaughtException', (error) => {
@@ -122,6 +124,7 @@ function createWindow(): void {
 
 function wireSmokeTest(window: BrowserWindow): void {
   let settled = false;
+  const smokeTimeoutMs = realQwenSmokeMode ? 240000 : 15000;
 
   const finish = (ok: boolean, message: string): void => {
     if (settled) {
@@ -134,6 +137,13 @@ function wireSmokeTest(window: BrowserWindow): void {
   };
 
   window.webContents.once('did-finish-load', () => {
+    if (realQwenSmokeMode) {
+      void runRealQwenSmoke(window)
+        .then((message) => finish(true, message))
+        .catch((error) => finish(false, formatLogValue(error)));
+      return;
+    }
+
     setTimeout(() => finish(true, 'renderer-loaded'), 250);
   });
 
@@ -141,7 +151,176 @@ function wireSmokeTest(window: BrowserWindow): void {
     finish(false, `${errorCode}: ${errorDescription}`);
   });
 
-  setTimeout(() => finish(false, 'renderer-load-timeout'), 15000);
+  setTimeout(() => finish(false, 'renderer-load-timeout'), smokeTimeoutMs);
+}
+
+interface RealQwenSmokeResult {
+  ok: boolean;
+  message: string;
+}
+
+async function runRealQwenSmoke(window: BrowserWindow): Promise<string> {
+  const workspacePath = process.env.QWEN_WORKSHOP_SMOKE_WORKSPACE?.trim();
+
+  if (!workspacePath) {
+    throw new Error('Missing QWEN_WORKSHOP_SMOKE_WORKSPACE.');
+  }
+
+  await mkdir(workspacePath, { recursive: true });
+
+  const result = (await window.webContents.executeJavaScript(
+    buildRealQwenSmokeScript(workspacePath, join(workspacePath, 'index.html')),
+    true
+  )) as RealQwenSmokeResult;
+
+  if (!result.ok) {
+    throw new Error(result.message);
+  }
+
+  return result.message;
+}
+
+function buildRealQwenSmokeScript(workspacePath: string, indexPath: string): string {
+  return `
+    (async () => {
+      const workspacePath = ${JSON.stringify(workspacePath)};
+      const indexPath = ${JSON.stringify(indexPath)};
+      const marker = 'QWEN_WORKSHOP_REAL_SMOKE_OK';
+      const qwenEvents = [];
+      const previewEvents = [];
+      let permissionCount = 0;
+      let previewId = '';
+      const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+      const fail = (message) => ({ ok: false, message });
+      const compact = (value) => String(value ?? '').replace(/\\s+/g, ' ').trim().slice(0, 280);
+
+      const offQwen = window.workshop.onQwenEvent((event) => {
+        qwenEvents.push({
+          kind: event.kind,
+          text: compact(event.text),
+          fatal: Boolean(event.fatal),
+          runId: event.runId
+        });
+      });
+      const offPreview = window.workshop.onPreviewEvent((event) => {
+        previewEvents.push({
+          kind: event.kind,
+          text: compact(event.text),
+          url: event.url
+        });
+      });
+      const offPermission = window.workshop.onQwenPermissionRequest((request) => {
+        permissionCount += 1;
+        void window.workshop.respondQwenPermission({
+          requestId: request.requestId,
+          approved: true
+        });
+      });
+
+      try {
+        const settings = await window.workshop.getSettings();
+        const secrets = await window.workshop.getSecretStatus();
+
+        if (!secrets.dashscope && !secrets['coding-plan']) {
+          return fail('No saved Qwen API key was available in the smoke user data.');
+        }
+
+        const prompt = [
+          'Release smoke test for Qwen Workshop.',
+          'Create exactly one file named index.html in this folder.',
+          'The page must be valid HTML and visibly contain the exact text QWEN_WORKSHOP_REAL_SMOKE_OK.',
+          'Do not ask questions. Do not create a project scaffold. Keep your final response under 20 words.'
+        ].join(' ');
+        const started = await window.workshop.startQwenRun({
+          workspacePath,
+          prompt,
+          attachments: [],
+          modelId: settings.modelId,
+          endpointKey: settings.endpointKey,
+          permissionMode: 'auto-edit',
+          thinkingEnabled: settings.thinkingEnabled,
+          thinkingBudget: settings.thinkingBudget,
+          qwenExecutablePath: settings.qwenExecutablePath
+        });
+
+        const runDeadline = Date.now() + 180000;
+        while (Date.now() < runDeadline) {
+          const fatal = qwenEvents.find((event) => event.runId === started.runId && event.kind === 'error' && event.fatal);
+          if (fatal) {
+            return fail('Qwen run failed: ' + fatal.text);
+          }
+
+          if (qwenEvents.some((event) => event.runId === started.runId && event.kind === 'done')) {
+            break;
+          }
+
+          await sleep(500);
+        }
+
+        if (!qwenEvents.some((event) => event.runId === started.runId && event.kind === 'done')) {
+          return fail('Timed out waiting for Qwen to finish.');
+        }
+
+        const file = await window.workshop.readWorkspaceFile({ workspacePath, filePath: indexPath });
+        if (!file.content.includes(marker)) {
+          return fail('index.html was created, but the expected marker text was missing.');
+        }
+
+        const preview = await window.workshop.startPreview({
+          workspacePath,
+          port: settings.previewPort,
+          command: 'qwen-workshop-static'
+        });
+        previewId = preview.previewId;
+
+        let previewUrl = preview.url;
+        let previewVerified = false;
+        const previewDeadline = Date.now() + 30000;
+
+        while (Date.now() < previewDeadline) {
+          const urlEvent = previewEvents.find((event) => event.kind === 'url' && event.url);
+          if (urlEvent?.url) {
+            previewUrl = urlEvent.url;
+          }
+
+          try {
+            const response = await fetch(previewUrl);
+            const text = await response.text();
+            if (text.includes(marker)) {
+              previewVerified = true;
+              break;
+            }
+          } catch {
+            // Static preview may need another moment to bind the port.
+          }
+
+          await sleep(500);
+        }
+
+        if (!previewVerified) {
+          return fail('Static preview did not serve the generated marker page.');
+        }
+
+        return {
+          ok: true,
+          message: 'real-qwen-file-and-preview-ok events=' + qwenEvents.length + ' approvals=' + permissionCount
+        };
+      } catch (error) {
+        return fail(error instanceof Error ? error.message : String(error));
+      } finally {
+        if (previewId) {
+          try {
+            await window.workshop.stopPreview(previewId);
+          } catch {
+            // Best-effort cleanup only.
+          }
+        }
+        offQwen();
+        offPreview();
+        offPermission();
+      }
+    })()
+  `;
 }
 
 function resolveAppIconPath(): string {

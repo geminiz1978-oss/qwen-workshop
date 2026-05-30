@@ -19,6 +19,8 @@
     "icons:win": "powershell -ExecutionPolicy Bypass -File scripts/generate-windows-icon.ps1",
     "smoke:desktop": "node scripts/smoke-electron.mjs",
     "smoke:packaged": "node scripts/smoke-packaged.mjs",
+    "smoke:qwen": "npm run build && node scripts/smoke-real-qwen.mjs",
+    "smoke:qwen:packaged": "node scripts/smoke-real-qwen.mjs --packaged",
     "check:release": "npm run typecheck && npm test && npm run build && npm run smoke:desktop",
     "check:package": "npm run typecheck && npm test && npm run pack && npm run smoke:packaged",
     "typecheck": "tsc --noEmit",

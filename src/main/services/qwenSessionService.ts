@@ -3,6 +3,7 @@ import { createSdkMcpServer, query, tool } from '@qwen-code/sdk';
 import type { CanUseTool, PermissionResult, ToolInput } from '@qwen-code/sdk';
 import { execFileSync, spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import { z } from 'zod';
 import { getEndpoint, isAllowedQwenModel } from '../../shared/qwenCatalog';
 import { extractMessageParts } from '../../shared/reasoning';
@@ -822,13 +823,34 @@ function resolveQwenExecutablePath(value: string | undefined): string | undefine
   const trimmed = value?.trim();
 
   if (!trimmed) {
-    return undefined;
+    return resolvePackagedBundledQwenCliPath();
   }
 
   const lower = trimmed.toLowerCase();
   const isWindowsQwenShim = process.platform === 'win32' && ['qwen', 'qwen.cmd', 'qwen.ps1'].includes(lower);
 
-  return isWindowsQwenShim ? undefined : trimmed;
+  return isWindowsQwenShim ? resolvePackagedBundledQwenCliPath() : trimmed;
+}
+
+function resolvePackagedBundledQwenCliPath(): string | undefined {
+  const resourcesPath = process.resourcesPath;
+
+  if (!resourcesPath || !resourcesPath.includes('resources')) {
+    return undefined;
+  }
+
+  const candidate = join(
+    resourcesPath,
+    'app.asar.unpacked',
+    'node_modules',
+    '@qwen-code',
+    'sdk',
+    'dist',
+    'cli',
+    'cli.js'
+  );
+
+  return existsSync(candidate) ? candidate : undefined;
 }
 
 function withNodeExecPath<T>(operation: () => T): T {
