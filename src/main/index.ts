@@ -38,7 +38,7 @@ import type {
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 
 app.setName('Qwen Workshop');
-app.setAppUserModelId('com.qwenworkshop.app');
+app.setAppUserModelId('com.geminiz1978.qwenworkshop');
 
 const smokeMode = process.argv.includes('--qwen-workshop-smoke') || process.env.QWEN_WORKSHOP_SMOKE === '1';
 const realQwenSmokeMode = smokeMode && process.env.QWEN_WORKSHOP_REAL_QWEN_SMOKE === '1';

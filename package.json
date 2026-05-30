@@ -29,6 +29,7 @@
   "build": {
     "appId": "com.geminiz1978.qwenworkshop",
     "productName": "Qwen Workshop",
+    "afterPack": "scripts/stamp-windows-icon.cjs",
     "copyright": "Copyright © 2026 Qwen Workshop",
     "directories": {
       "output": "release",
