@@ -1,4 +1,4 @@
-import { FileText, FolderOpen, GitBranch, History, RefreshCw, Search } from 'lucide-react';
+import { FileText, FolderOpen, GitBranch, History, RefreshCw, Search, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import type { FileTreeNode, GitFileStatus, WorkspaceInfo, WorkspaceSearchResult } from '@shared/types';
 
@@ -12,6 +12,7 @@ interface WorkspaceExplorerProps {
   isSearching: boolean;
   onOpenWorkspace: () => void;
   onOpenRecentWorkspace: (workspace: WorkspaceInfo) => void;
+  onForgetRecentWorkspace: (workspace: WorkspaceInfo) => void;
   onOpenFile: (filePath: string) => void;
   onSearch: (query: string) => void;
   onReviewChanges: () => void;
@@ -28,6 +29,7 @@ export function WorkspaceExplorer({
   isSearching,
   onOpenWorkspace,
   onOpenRecentWorkspace,
+  onForgetRecentWorkspace,
   onOpenFile,
   onSearch,
   onReviewChanges,
@@ -71,15 +73,20 @@ export function WorkspaceExplorer({
           </div>
           <div className="recent-workspace-list">
             {recentWorkspaces.slice(0, 5).map((item) => (
-              <button
-                className={`recent-workspace-row ${workspace?.path === item.path ? 'active' : ''}`}
-                key={item.path}
-                onClick={() => onOpenRecentWorkspace(item)}
-                title={item.path}
-              >
-                <span>{item.name}</span>
-                <small>{item.path}</small>
-              </button>
+              <div className={`recent-workspace-row ${workspace?.path === item.path ? 'active' : ''}`} key={item.path}>
+                <button className="recent-workspace-main" onClick={() => onOpenRecentWorkspace(item)} title={item.path} type="button">
+                  <span>{item.name}</span>
+                  <small>{item.path}</small>
+                </button>
+                <button
+                  className="icon-button danger recent-workspace-forget"
+                  onClick={() => onForgetRecentWorkspace(item)}
+                  title={`Forget ${item.name} from recent folders`}
+                  type="button"
+                >
+                  <Trash2 size={13} />
+                </button>
+              </div>
             ))}
           </div>
         </section>

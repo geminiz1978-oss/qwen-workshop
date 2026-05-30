@@ -481,37 +481,53 @@ button {
   display: grid;
   width: 100%;
   min-width: 0;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 2px;
+  grid-template-columns: minmax(0, 1fr) 30px;
+  align-items: stretch;
+  gap: 6px;
   border: 1px solid var(--line);
   background: var(--dark);
-  padding: 8px 9px;
+  padding: 6px;
+}
+
+.recent-workspace-main {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+  border: 0;
+  background: transparent;
   color: var(--text);
   cursor: pointer;
+  padding: 2px 3px;
   text-align: left;
 }
 
-.recent-workspace-row:hover,
+.recent-workspace-row:has(.recent-workspace-main:hover),
 .recent-workspace-row.active {
   border-color: rgba(227, 43, 56, 0.6);
   background: rgba(227, 43, 56, 0.1);
 }
 
-.recent-workspace-row span,
-.recent-workspace-row small {
+.recent-workspace-main span,
+.recent-workspace-main small {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.recent-workspace-row span {
+.recent-workspace-main span {
   font-size: 12px;
   font-weight: 800;
 }
 
-.recent-workspace-row small {
+.recent-workspace-main small {
   color: var(--muted);
   font-size: 10px;
+}
+
+.recent-workspace-forget {
+  width: 30px;
+  height: 100%;
+  min-height: 30px;
 }
 
 .file-tree,

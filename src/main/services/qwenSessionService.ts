@@ -434,7 +434,7 @@ export class QwenSessionService {
 
     return createSdkMcpServer({
       name: 'qwen-workshop',
-      version: '0.1.2',
+      version: '0.1.3',
       tools: [runCommandTool]
     });
   }

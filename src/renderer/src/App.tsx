@@ -578,6 +578,12 @@ export function App(): JSX.Element {
     }
   }
 
+  function forgetRecentWorkspace(selected: WorkspaceInfo): void {
+    const selectedKey = workspaceKey(selected.path);
+    setRecentWorkspaces((items) => items.filter((item) => workspaceKey(item.path) !== selectedKey));
+    pushToast('info', 'Recent folder removed', selected.name);
+  }
+
   async function refreshWorkspace(workspacePath = workspaceRef.current?.path): Promise<FileTreeNode[]> {
     if (!workspacePath) {
       return [];
@@ -1771,6 +1777,7 @@ export function App(): JSX.Element {
           isSearching={isSearching}
           onOpenWorkspace={selectWorkspace}
           onOpenRecentWorkspace={(recentWorkspace) => openWorkspace(recentWorkspace)}
+          onForgetRecentWorkspace={forgetRecentWorkspace}
           onOpenFile={(filePath) => void openWorkspaceFile(filePath)}
           onSearch={(query) => void searchWorkspace(query)}
           onReviewChanges={openChangeReview}
