@@ -23,7 +23,7 @@ import {
   UserRound,
   X
 } from 'lucide-react';
-import { useEffect, useRef, useState, type DragEvent, type FormEvent } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type DragEvent, type FormEvent } from 'react';
 import type { AttachmentInfo, ChatEntry, PromptTemplateConfig, QwenRunPhase, QwenRunStatus } from '@shared/types';
 
 interface ChatPanelProps {
@@ -93,7 +93,9 @@ export function ChatPanel({
   const [isImporting, setIsImporting] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [speechSupported] = useState(() => Boolean(getSpeechRecognitionConstructor()));
+  const panelRef = useRef<HTMLElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const dockRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const visibleEntries = entries.filter((entry) => entry.role !== 'raw');
@@ -104,6 +106,44 @@ export function ChatPanel({
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
   }, [entries]);
+
+  useLayoutEffect(() => {
+    const panel = panelRef.current;
+    const dock = dockRef.current;
+
+    if (!panel || !dock) {
+      return;
+    }
+
+    let frame = 0;
+
+    const updateDockGeometry = (): void => {
+      const rect = panel.getBoundingClientRect();
+      panel.style.setProperty('--chat-dock-left', `${Math.max(0, rect.left)}px`);
+      panel.style.setProperty('--chat-dock-width', `${Math.max(0, rect.width)}px`);
+      panel.style.setProperty('--chat-dock-height', `${Math.ceil(dock.getBoundingClientRect().height)}px`);
+    };
+
+    const scheduleUpdate = (): void => {
+      window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(updateDockGeometry);
+    };
+
+    updateDockGeometry();
+
+    const observer = new ResizeObserver(scheduleUpdate);
+    observer.observe(panel);
+    observer.observe(dock);
+    window.addEventListener('resize', scheduleUpdate);
+    window.addEventListener('scroll', scheduleUpdate, true);
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      observer.disconnect();
+      window.removeEventListener('resize', scheduleUpdate);
+      window.removeEventListener('scroll', scheduleUpdate, true);
+    };
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -218,7 +258,7 @@ export function ChatPanel({
   }
 
   return (
-    <section className="panel chat-panel" onDragOver={handleDragOver} onDrop={handleDrop}>
+    <section className="panel chat-panel" ref={panelRef} onDragOver={handleDragOver} onDrop={handleDrop}>
       <div className="panel-header">
         <div>
           <span className="eyebrow">Agent</span>
@@ -271,7 +311,7 @@ export function ChatPanel({
         )}
       </div>
 
-      <div className="chat-dock">
+      <div className="chat-dock" ref={dockRef}>
         {rawOpen ? (
           <section className="raw-drawer">
             <div className="raw-drawer-header">

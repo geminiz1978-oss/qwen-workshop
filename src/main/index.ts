@@ -165,6 +165,7 @@ function wireSmokeTest(window: BrowserWindow): void {
 
 interface LayoutSmokeMetrics {
   windowInnerHeight: number;
+  windowScrollY: number;
   documentClientHeight: number;
   documentScrollHeight: number;
   shellClientHeight: number;
@@ -179,6 +180,8 @@ interface LayoutSmokeMetrics {
   composerBottom: number;
   dockBottom: number;
   panelBottom: number;
+  shellTop: number;
+  chatHeaderTop: number;
 }
 
 async function runLayoutSmoke(window: BrowserWindow): Promise<string> {
@@ -196,34 +199,48 @@ async function runLayoutSmoke(window: BrowserWindow): Promise<string> {
   await new Promise((resolve) => setTimeout(resolve, 500));
 
   const metrics = (await window.webContents.executeJavaScript(`
-    (() => {
-      const shell = document.querySelector('.app-shell');
-      const grid = document.querySelector('.workspace-grid');
-      const panel = document.querySelector('.chat-panel');
-      const scroll = document.querySelector('.chat-scroll');
-      const dock = document.querySelector('.chat-dock');
-      const composer = document.querySelector('.composer');
-      const panelRect = panel?.getBoundingClientRect();
-      const dockRect = dock?.getBoundingClientRect();
-      const composerRect = composer?.getBoundingClientRect();
+    (async () => {
+      const measure = () => {
+        const shell = document.querySelector('.app-shell');
+        const grid = document.querySelector('.workspace-grid');
+        const panel = document.querySelector('.chat-panel');
+        const scroll = document.querySelector('.chat-scroll');
+        const dock = document.querySelector('.chat-dock');
+        const composer = document.querySelector('.composer');
+        const panelRect = panel?.getBoundingClientRect();
+        const dockRect = dock?.getBoundingClientRect();
+        const composerRect = composer?.getBoundingClientRect();
+        const shellRect = shell?.getBoundingClientRect();
+        const chatHeaderRect = document.querySelector('.chat-panel > .panel-header')?.getBoundingClientRect();
 
-      return {
-        windowInnerHeight: window.innerHeight,
-        documentClientHeight: document.documentElement.clientHeight,
-        documentScrollHeight: document.documentElement.scrollHeight,
-        shellClientHeight: shell?.clientHeight ?? 0,
-        shellScrollHeight: shell?.scrollHeight ?? 0,
-        gridClientHeight: grid?.clientHeight ?? 0,
-        gridScrollHeight: grid?.scrollHeight ?? 0,
-        chatPanelClientHeight: panel?.clientHeight ?? 0,
-        chatPanelScrollHeight: panel?.scrollHeight ?? 0,
-        chatScrollClientHeight: scroll?.clientHeight ?? 0,
-        chatScrollHeight: scroll?.scrollHeight ?? 0,
-        composerTop: composerRect?.top ?? -1,
-        composerBottom: composerRect?.bottom ?? -1,
-        dockBottom: dockRect?.bottom ?? -1,
-        panelBottom: panelRect?.bottom ?? -1
+        return {
+          windowInnerHeight: window.innerHeight,
+          windowScrollY: window.scrollY,
+          documentClientHeight: document.documentElement.clientHeight,
+          documentScrollHeight: document.documentElement.scrollHeight,
+          shellClientHeight: shell?.clientHeight ?? 0,
+          shellScrollHeight: shell?.scrollHeight ?? 0,
+          gridClientHeight: grid?.clientHeight ?? 0,
+          gridScrollHeight: grid?.scrollHeight ?? 0,
+          chatPanelClientHeight: panel?.clientHeight ?? 0,
+          chatPanelScrollHeight: panel?.scrollHeight ?? 0,
+          chatScrollClientHeight: scroll?.clientHeight ?? 0,
+          chatScrollHeight: scroll?.scrollHeight ?? 0,
+          composerTop: composerRect?.top ?? -1,
+          composerBottom: composerRect?.bottom ?? -1,
+          dockBottom: dockRect?.bottom ?? -1,
+          panelBottom: panelRect?.bottom ?? -1,
+          shellTop: shellRect?.top ?? -1,
+          chatHeaderTop: chatHeaderRect?.top ?? -1
+        };
       };
+
+      window.scrollTo(0, document.documentElement.scrollHeight);
+      for (const element of document.querySelectorAll('.app-shell, .workspace-grid, .workspace-panel, .center-stack, .right-stack, .settings-band, .chat-panel, .chat-scroll')) {
+        element.scrollTop = element.scrollHeight;
+      }
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      return measure();
     })();
   `)) as LayoutSmokeMetrics;
 
@@ -232,6 +249,10 @@ async function runLayoutSmoke(window: BrowserWindow): Promise<string> {
 
   if (metrics.documentScrollHeight > metrics.documentClientHeight + tolerance) {
     failures.push(`document scrolls ${metrics.documentScrollHeight}/${metrics.documentClientHeight}`);
+  }
+
+  if (metrics.windowScrollY > tolerance) {
+    failures.push(`window scrolled to ${metrics.windowScrollY}`);
   }
 
   if (metrics.shellScrollHeight > metrics.shellClientHeight + tolerance) {
@@ -250,12 +271,20 @@ async function runLayoutSmoke(window: BrowserWindow): Promise<string> {
     failures.push(`chat transcript did not receive overflow ${metrics.chatScrollHeight}/${metrics.chatScrollClientHeight}`);
   }
 
+  if (Math.abs(metrics.shellTop) > tolerance) {
+    failures.push(`shell moved to ${metrics.shellTop}`);
+  }
+
+  if (metrics.chatHeaderTop < 0 || metrics.chatHeaderTop > metrics.windowInnerHeight) {
+    failures.push(`chat header offscreen ${metrics.chatHeaderTop}`);
+  }
+
   if (metrics.composerTop < 0 || metrics.composerBottom > metrics.windowInnerHeight + tolerance) {
     failures.push(`composer offscreen ${metrics.composerTop}/${metrics.composerBottom}`);
   }
 
-  if (Math.abs(metrics.dockBottom - metrics.panelBottom) > tolerance) {
-    failures.push(`dock detached ${metrics.dockBottom}/${metrics.panelBottom}`);
+  if (Math.abs(metrics.dockBottom - metrics.windowInnerHeight) > tolerance) {
+    failures.push(`dock not viewport-pinned ${metrics.dockBottom}/${metrics.windowInnerHeight}`);
   }
 
   if (failures.length) {

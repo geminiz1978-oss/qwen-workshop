@@ -32,15 +32,28 @@ body,
   overflow: hidden;
 }
 
+html {
+  position: fixed;
+  inset: 0;
+}
+
 body {
+  position: fixed;
+  inset: 0;
   margin: 0;
   height: 100%;
   min-width: 1080px;
   min-height: 0;
+  max-height: 100%;
   background: var(--black);
   color: var(--text);
   letter-spacing: 0;
   overscroll-behavior: none;
+}
+
+#root {
+  position: fixed;
+  inset: 0;
 }
 
 button,
@@ -819,6 +832,9 @@ button {
 }
 
 .chat-panel {
+  --chat-dock-height: 152px;
+  --chat-dock-left: 0px;
+  --chat-dock-width: 100%;
   display: grid;
   grid-template-areas:
     "chat-header"
@@ -831,6 +847,7 @@ button {
   min-height: 0;
   overflow: hidden;
   overscroll-behavior: none;
+  isolation: isolate;
 }
 
 .chat-panel > .panel-header {
@@ -964,7 +981,7 @@ button {
   min-height: 0;
   overflow: auto;
   overscroll-behavior: contain;
-  padding: 16px;
+  padding: 16px 16px calc(var(--chat-dock-height) + 16px);
   scrollbar-gutter: stable;
 }
 
@@ -1506,13 +1523,20 @@ button {
 }
 
 .chat-dock {
-  position: sticky;
+  position: fixed;
+  right: auto;
   bottom: 0;
-  z-index: 5;
+  left: var(--chat-dock-left);
+  z-index: 18;
   display: grid;
   grid-area: chat-dock;
+  width: var(--chat-dock-width);
+  max-height: min(340px, 46dvh);
   min-height: 0;
+  overflow: auto;
+  box-shadow: 0 -18px 28px rgba(0, 0, 0, 0.26);
   background: #101013;
+  scrollbar-gutter: stable;
 }
 
 .prompt-library {
