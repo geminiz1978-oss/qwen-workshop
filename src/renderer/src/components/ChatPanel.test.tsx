@@ -39,7 +39,7 @@ describe('splitMessageBlocks', () => {
 });
 
 describe('buildChatRenderItems', () => {
-  it('collapses reasoning and tool chatter into activity groups', () => {
+  it('keeps internal reasoning and tool chatter out of the main transcript', () => {
     const entries: ChatEntry[] = [
       chatEntry('1', 'user', 'fix the game'),
       chatEntry('2', 'reasoning', 'thinking'),
@@ -50,14 +50,8 @@ describe('buildChatRenderItems', () => {
 
     const items = buildChatRenderItems(entries);
 
-    expect(items.map((item) => item.kind)).toEqual(['entry', 'entry', 'entry', 'activity']);
-    expect(items[3]).toMatchObject({
-      kind: 'activity',
-      entries: [
-        { id: '2', role: 'reasoning' },
-        { id: '3', role: 'tool' }
-      ]
-    });
+    expect(items.map((item) => item.kind)).toEqual(['entry', 'entry', 'entry']);
+    expect(items.map((item) => item.entry.role)).toEqual(['user', 'assistant', 'done']);
   });
 });
 

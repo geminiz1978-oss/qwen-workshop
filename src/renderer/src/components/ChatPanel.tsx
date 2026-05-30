@@ -302,13 +302,7 @@ export function ChatPanel({
 
       <div className="chat-scroll" ref={scrollRef}>
         {renderItems.length ? (
-          renderItems.map((item) =>
-            item.kind === 'activity' ? (
-              <ChatActivityGroup entries={item.entries} key={item.id} />
-            ) : (
-              <ChatBubble entry={item.entry} key={item.entry.id} />
-            )
-          )
+          renderItems.map((item) => <ChatBubble entry={item.entry} key={item.entry.id} />)
         ) : (
           <div className="empty-chat">
             <Bot size={28} />
@@ -425,47 +419,13 @@ function formatTranscriptEntry(entry: ChatEntry): string {
   return `${labelForRole(entry.role)}\n${entry.text}${attachments}`;
 }
 
-export type ChatRenderItem =
-  | {
-      id: string;
-      kind: 'activity';
-      entries: ChatEntry[];
-    }
-  | {
-      kind: 'entry';
-      entry: ChatEntry;
-    };
+export type ChatRenderItem = {
+  kind: 'entry';
+  entry: ChatEntry;
+};
 
 export function buildChatRenderItems(entries: ChatEntry[]): ChatRenderItem[] {
-  const items: ChatRenderItem[] = [];
-  let activityEntries: ChatEntry[] = [];
-
-  function flushActivity(): void {
-    if (!activityEntries.length) {
-      return;
-    }
-
-    const first = activityEntries[0];
-    const last = activityEntries[activityEntries.length - 1];
-    items.push({
-      id: `activity-${first.id}-${last.id}`,
-      kind: 'activity',
-      entries: activityEntries
-    });
-    activityEntries = [];
-  }
-
-  for (const entry of entries) {
-    if (isInternalActivityEntry(entry)) {
-      activityEntries.push(entry);
-      continue;
-    }
-
-    items.push({ kind: 'entry', entry });
-  }
-
-  flushActivity();
-  return items;
+  return entries.filter((entry) => !isInternalActivityEntry(entry)).map((entry) => ({ kind: 'entry', entry }));
 }
 
 function isInternalActivityEntry(entry: ChatEntry): boolean {
