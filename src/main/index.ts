@@ -944,7 +944,7 @@ async function exportTranscript(request: ExportTranscriptRequest): Promise<Expor
 }
 
 function formatTranscriptMarkdown(request: ExportTranscriptRequest): string {
-  const visibleEntries = request.entries.filter((entry) => entry.role !== 'raw');
+  const visibleEntries = request.entries.filter(isUserFacingTranscriptEntry);
   const lines = [
     `# ${request.workspaceName || 'Qwen Workshop'} Transcript`,
     '',
@@ -976,6 +976,10 @@ function formatTranscriptMarkdown(request: ExportTranscriptRequest): string {
   }
 
   return `${lines.join('\n').trim()}\n`;
+}
+
+function isUserFacingTranscriptEntry(entry: ChatEntry): boolean {
+  return entry.role !== 'raw' && entry.role !== 'reasoning' && entry.role !== 'tool' && entry.role !== 'started' && entry.role !== 'todo';
 }
 
 function runtimeLogPath(): string {

@@ -65,7 +65,7 @@ const mockWorkshop: WorkshopApi = {
   openRuntimeLogExternal: async () => undefined,
   getAppDiagnostics: async () => ({
     appName: 'Qwen Workshop',
-    appVersion: '0.1.4',
+    appVersion: '0.1.5',
     mode: 'development',
     isPackaged: false,
     platform: 'browser',

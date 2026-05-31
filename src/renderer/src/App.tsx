@@ -73,6 +73,7 @@ interface LastRunRequest {
 
 export function App(): JSX.Element {
   const [settings, setSettings] = useState<AppSettings | null>(null);
+  const [appVersion, setAppVersion] = useState('');
   const [secretStatus, setSecretStatus] = useState<SecretStatus>({ dashscope: false, 'coding-plan': false });
   const [workspace, setWorkspace] = useState<WorkspaceInfo | null>(null);
   const [recentWorkspaces, setRecentWorkspaces] = useState<WorkspaceInfo[]>([]);
@@ -504,14 +505,16 @@ export function App(): JSX.Element {
   );
 
   async function boot(): Promise<void> {
-    const [loadedSettings, loadedSecrets, savedSession] = await Promise.all([
+    const [loadedSettings, loadedSecrets, savedSession, diagnostics] = await Promise.all([
       workshop.getSettings(),
       workshop.getSecretStatus(),
-      workshop.getSession()
+      workshop.getSession(),
+      workshop.getAppDiagnostics().catch(() => null)
     ]);
     const activeRecord = getActiveWorkspaceRecord(savedSession);
 
     setSettings(loadedSettings);
+    setAppVersion(diagnostics?.appVersion ?? '');
     setSecretStatus(loadedSecrets);
     setRecentWorkspaces(savedSession.recentWorkspaces);
     setWorkspaceSessions(savedSession.workspaces);
@@ -595,12 +598,54 @@ export function App(): JSX.Element {
       return;
     }
 
-    const mergedSessions = captureCurrentWorkspaceSession();
+    await closeCurrentWorkspaceView({
+      toastTitle: 'Recent folder removed',
+      toastDetail: `${selected.name} was closed from the workspace view.`
+    });
+  }
+
+  async function clearRecentWorkspaces(): Promise<void> {
+    const recentItems = recentWorkspacesRef.current;
+
+    if (!recentItems.length) {
+      return;
+    }
+
+    const currentWorkspace = workspaceRef.current;
+    const currentKey = currentWorkspace ? workspaceKey(currentWorkspace.path) : '';
+    const closesCurrentWorkspace = Boolean(
+      currentWorkspace && recentItems.some((item) => workspaceKey(item.path) === currentKey)
+    );
+
+    if (closesCurrentWorkspace && activeRunId) {
+      appendEntry('error', 'Stop the active Qwen run before clearing Recents for the open folder.');
+      return;
+    }
+
+    if (!window.confirm('Clear all recent folders? This only removes shortcuts and does not delete any folders from disk.')) {
+      return;
+    }
+
+    setRecentWorkspaces([]);
+
+    if (closesCurrentWorkspace) {
+      await closeCurrentWorkspaceView({
+        toastTitle: 'Recent folders cleared',
+        toastDetail: 'The open workspace was closed from the workspace view.'
+      });
+      return;
+    }
+
+    pushToast('info', 'Recent folders cleared');
+  }
+
+  async function closeCurrentWorkspaceView(options: { saveSession?: boolean; toastTitle?: string; toastDetail?: string } = {}): Promise<void> {
+    const mergedSessions = options.saveSession === false ? workspaceSessionsRef.current : captureCurrentWorkspaceSession();
 
     try {
       await stopCurrentPreview();
     } catch (error) {
-      appendEntry('error', `Could not stop preview while closing workspace: ${error instanceof Error ? error.message : String(error)}`);
+      pushToast('warning', 'Preview stop failed', error instanceof Error ? error.message : String(error));
     }
 
     setWorkspaceSessions(mergedSessions);
@@ -626,7 +671,10 @@ export function App(): JSX.Element {
     setFileError('');
     setSearchResults([]);
     setRightRailView('overview');
-    pushToast('info', 'Recent folder removed', `${selected.name} was closed from the workspace view.`);
+
+    if (options.toastTitle) {
+      pushToast('info', options.toastTitle, options.toastDetail);
+    }
   }
 
   async function refreshWorkspace(workspacePath = workspaceRef.current?.path): Promise<FileTreeNode[]> {
@@ -1763,7 +1811,7 @@ export function App(): JSX.Element {
           <img className="brand-icon" src={workshopIconUrl} alt="" />
           <div>
             <h1>Qwen Workshop</h1>
-            <span>Qwen-native agent workspace</span>
+            <span>Qwen-native agent workspace{appVersion ? ` - v${appVersion}` : ''}</span>
           </div>
         </div>
 
@@ -1823,6 +1871,7 @@ export function App(): JSX.Element {
           onOpenWorkspace={selectWorkspace}
           onOpenRecentWorkspace={(recentWorkspace) => openWorkspace(recentWorkspace)}
           onForgetRecentWorkspace={forgetRecentWorkspace}
+          onClearRecentWorkspaces={clearRecentWorkspaces}
           onOpenFile={(filePath) => void openWorkspaceFile(filePath)}
           onSearch={(query) => void searchWorkspace(query)}
           onReviewChanges={openChangeReview}

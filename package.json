@@ -1,7 +1,7 @@
 {
   "name": "qwen-workshop",
   "productName": "Qwen Workshop",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "A Qwen-native desktop agent workspace.",
   "main": "./out/main/index.js",
   "author": "Qwen Workshop",

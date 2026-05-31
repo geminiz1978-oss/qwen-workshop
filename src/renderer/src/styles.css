@@ -472,6 +472,17 @@ button {
   margin: 0 14px 12px;
 }
 
+.recent-workspace-tools {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.recent-workspace-clear {
+  width: 26px;
+  height: 26px;
+}
+
 .recent-workspace-list {
   display: grid;
   gap: 6px;

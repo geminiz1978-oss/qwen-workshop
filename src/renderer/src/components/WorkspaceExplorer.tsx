@@ -13,6 +13,7 @@ interface WorkspaceExplorerProps {
   onOpenWorkspace: () => void;
   onOpenRecentWorkspace: (workspace: WorkspaceInfo) => void;
   onForgetRecentWorkspace: (workspace: WorkspaceInfo) => void | Promise<void>;
+  onClearRecentWorkspaces: () => void | Promise<void>;
   onOpenFile: (filePath: string) => void;
   onSearch: (query: string) => void;
   onReviewChanges: () => void;
@@ -30,6 +31,7 @@ export function WorkspaceExplorer({
   onOpenWorkspace,
   onOpenRecentWorkspace,
   onForgetRecentWorkspace,
+  onClearRecentWorkspaces,
   onOpenFile,
   onSearch,
   onReviewChanges,
@@ -69,7 +71,17 @@ export function WorkspaceExplorer({
               <History size={14} />
               Recent
             </span>
-            <span>{recentWorkspaces.length}</span>
+            <span className="recent-workspace-tools">
+              <span>{recentWorkspaces.length}</span>
+              <button
+                className="icon-button danger recent-workspace-clear"
+                onClick={() => void onClearRecentWorkspaces()}
+                title="Clear recent folders"
+                type="button"
+              >
+                <Trash2 size={13} />
+              </button>
+            </span>
           </div>
           <div className="recent-workspace-list">
             {recentWorkspaces.slice(0, 5).map((item) => (
