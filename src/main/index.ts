@@ -71,6 +71,7 @@ const previewServerService = new PreviewServerService();
 const qwenSessionService = new QwenSessionService(settingsStore, workspaceMemoryService, workspaceCheckpointService);
 
 let mainWindow: BrowserWindow | undefined;
+let isQuitting = false;
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
@@ -90,6 +91,19 @@ function createWindow(): void {
       nodeIntegration: false,
       webviewTag: false
     }
+  });
+
+  mainWindow.on('close', (event) => {
+    if (smokeMode || isQuitting || mainWindow?.isMinimized()) {
+      return;
+    }
+
+    event.preventDefault();
+    mainWindow?.minimize();
+  });
+
+  mainWindow.on('closed', () => {
+    mainWindow = undefined;
   });
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
@@ -573,6 +587,7 @@ app.whenReady().then(() => {
 });
 
 app.on('before-quit', () => {
+  isQuitting = true;
   previewServerService.stopAll();
 });
 

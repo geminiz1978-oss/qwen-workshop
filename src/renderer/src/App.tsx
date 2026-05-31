@@ -578,10 +578,55 @@ export function App(): JSX.Element {
     }
   }
 
-  function forgetRecentWorkspace(selected: WorkspaceInfo): void {
+  async function forgetRecentWorkspace(selected: WorkspaceInfo): Promise<void> {
     const selectedKey = workspaceKey(selected.path);
+    const currentWorkspace = workspaceRef.current;
+    const isCurrentWorkspace = Boolean(currentWorkspace && workspaceKey(currentWorkspace.path) === selectedKey);
+
+    if (isCurrentWorkspace && activeRunId) {
+      appendEntry('error', 'Stop the active Qwen run before removing the open folder from Recents.');
+      return;
+    }
+
     setRecentWorkspaces((items) => items.filter((item) => workspaceKey(item.path) !== selectedKey));
-    pushToast('info', 'Recent folder removed', selected.name);
+
+    if (!isCurrentWorkspace) {
+      pushToast('info', 'Recent folder removed', selected.name);
+      return;
+    }
+
+    const mergedSessions = captureCurrentWorkspaceSession();
+
+    try {
+      await stopCurrentPreview();
+    } catch (error) {
+      appendEntry('error', `Could not stop preview while closing workspace: ${error instanceof Error ? error.message : String(error)}`);
+    }
+
+    setWorkspaceSessions(mergedSessions);
+    setWorkspace(null);
+    setChatEntries([]);
+    setChatThreads([]);
+    setCommandHistory([]);
+    setAgentTodos([]);
+    setPermissionRequests([]);
+    setRunStatus(null);
+    setLastRunRequest(null);
+    setPreviewInfo(null);
+    setPreviewLogs([]);
+    setCommandResult(null);
+    setGitDiffFiles([]);
+    setWorkspaceMemory(null);
+    setWorkspaceCheckpoints([]);
+    setWorkspaceChecks([]);
+    setGitStatus([]);
+    setFileTree([]);
+    setSelectedFile(null);
+    setFileDraft('');
+    setFileError('');
+    setSearchResults([]);
+    setRightRailView('overview');
+    pushToast('info', 'Recent folder removed', `${selected.name} was closed from the workspace view.`);
   }
 
   async function refreshWorkspace(workspacePath = workspaceRef.current?.path): Promise<FileTreeNode[]> {

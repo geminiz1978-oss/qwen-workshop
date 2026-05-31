@@ -12,7 +12,7 @@ interface WorkspaceExplorerProps {
   isSearching: boolean;
   onOpenWorkspace: () => void;
   onOpenRecentWorkspace: (workspace: WorkspaceInfo) => void;
-  onForgetRecentWorkspace: (workspace: WorkspaceInfo) => void;
+  onForgetRecentWorkspace: (workspace: WorkspaceInfo) => void | Promise<void>;
   onOpenFile: (filePath: string) => void;
   onSearch: (query: string) => void;
   onReviewChanges: () => void;
@@ -80,7 +80,7 @@ export function WorkspaceExplorer({
                 </button>
                 <button
                   className="icon-button danger recent-workspace-forget"
-                  onClick={() => onForgetRecentWorkspace(item)}
+                  onClick={() => void onForgetRecentWorkspace(item)}
                   title={`Forget ${item.name} from recent folders`}
                   type="button"
                 >
